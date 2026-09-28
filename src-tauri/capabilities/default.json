@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local-desktop",
+  "description": "Local UI event subscriptions and pet drag only. No file, shell or network permissions.",
+  "windows": ["main", "pet"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-start-dragging"]
+}

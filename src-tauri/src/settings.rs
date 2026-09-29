@@ -17,6 +17,7 @@ pub struct Settings {
     pub reduced_motion: bool,
     pub autostart: bool,
     pub easter_eggs: bool,
+    pub speech_enabled: bool,
 }
 
 impl Default for Settings {
@@ -35,13 +36,25 @@ impl Default for Settings {
             reduced_motion: false,
             autostart: false,
             easter_eggs: true,
+            speech_enabled: true,
         }
     }
 }
 
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
-        if !["fox", "emojiFox", "girl", "cat", "capybara"].contains(&self.animal.as_str()) {
+        if ![
+            "fox",
+            "emojiFox",
+            "girl",
+            "cat",
+            "capybara",
+            "shyFox",
+            "yuexinCat",
+            "orangeFox",
+        ]
+        .contains(&self.animal.as_str())
+        {
             return Err("没有找到这位舞伴".into());
         }
         if !["sway", "step", "wave"].contains(&self.dance.as_str()) {
@@ -129,8 +142,17 @@ pub fn save(path: &Path, data: &Stored) -> Result<(), String> {
 mod tests {
     use super::*;
     #[test]
-    fn defaults_and_all_fifteen_combinations_are_valid() {
-        for animal in ["fox", "emojiFox", "girl", "cat", "capybara"] {
+    fn defaults_and_all_twenty_four_combinations_are_valid() {
+        for animal in [
+            "fox",
+            "emojiFox",
+            "girl",
+            "cat",
+            "capybara",
+            "shyFox",
+            "yuexinCat",
+            "orangeFox",
+        ] {
             for dance in ["sway", "step", "wave"] {
                 let s = Settings {
                     animal: animal.into(),
@@ -159,6 +181,7 @@ mod tests {
         assert_eq!(s.animal, "cat");
         assert_eq!(s.size, 180.0);
         assert!(s.keyboard);
+        assert!(s.speech_enabled);
     }
     #[test]
     fn preserves_negative_monitor_coordinates_and_replaces_settings() {

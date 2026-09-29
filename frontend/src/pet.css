@@ -11,3 +11,5 @@ html.pet-document, body.pet-document, .pet-document #root { margin:0; width:100%
 .pet-toolbar .pet-drag-handle { flex:1; text-align:left; color:#6e5745; background:transparent; cursor:grab; touch-action:none; }
 .pet-toolbar .pet-drag-handle:active { cursor:grabbing; }
 .pet-error { position:absolute; bottom:4px; inset-inline:4px; padding:8px; border-radius:8px; background:#fff5f2; color:#9c4037; font:11px system-ui; overflow-wrap:anywhere; }
+.pet-speech { position:absolute; z-index:3; top:6px; right:8px; max-width:190px; padding:7px 10px; border:1px solid #e8d8c5; border-radius:13px 13px 4px 13px; background:#fffaf1eF; color:#765542; font:12px/1.45 system-ui, sans-serif; box-shadow:0 3px 10px #65483218; pointer-events:none; animation:pet-speech-in .2s ease-out; }
+@keyframes pet-speech-in { from { opacity:0; transform:translateY(3px) scale(.96); } to { opacity:1; transform:none; } }

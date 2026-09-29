@@ -81,3 +81,45 @@
 - 现场确认桌面窗口包含可操作的“点击小舞伴互动，按住拖动位置”按钮。实际点击后聚合诊断出现 `direct_clicks` 与 `dancing_frames` 增长，同时 `emitted=0`、`native_pulses=0`：该互动直接来自舞伴窗口，不需要全局输入监听。计数包含用户同期操作，不用作隔离性能测试。
 - 身体拖动实测后，持久化位置从 `(3456, 652)` 更新为 `(3146, 452)`，拖动后未产生额外点击（该次新会话 `direct_clicks=0`）。用户同期也在操作应用，因此该记录确认移动和保存链路，不作为精确位移、混合 DPI 多屏验收。
 - 当前进程仍返回 `permission_required`；用户报告已经开启系统设置开关，开关与当前运行身份之间的差异尚未确定，不能声称后台键盘问题已解决。
+
+## 新增参考皮肤 · 2026-09-28
+
+- 新增 `shyFox`（委屈小狐狸）、`yuexinCat`（月薪喵）和 `orangeFox`（害羞橙狐），共 8 位舞伴；前端主题选择、无障碍名称、Canvas 渲染和 Rust 设置校验均已接入。
+- 三套皮肤使用 Factory `gpt-image-2` 基于用户参考图生成的 4×4 十六帧动作套图。Canvas 按行为 clip 选择起势、律动、收势、恢复、摸头和打招呼路径，每次只绘制一个源帧，避免大幅姿势变化叠加成透明拖影。
+- 本次十六帧生成提示词保存在 `prompts/shy-fox-action-sheet-v3.txt`、`prompts/yuexin-cat-action-sheet-v3.txt` 和 `prompts/orange-fox-action-sheet-v1.txt`；原始生成结果及非敏感元数据保存在 `generated/`，运行时只打包 `frontend/assets/*-action-sheet.png`。
+- `BehaviorController` 将匿名事件转换为 `anticipation → groove → settle → recover → idle/sleep`；`SpeechDirector` 为不同舞伴提供本地短句池，按事件和冷却触发，设置页可以关闭对白。
+- 新增角色尚未完成独立的 2,880 样本渲染回归与 Windows 实机验收。
+
+## 动作与对白重设计 · 2026-09-28
+
+- `BehaviorController` 把输入、摸头、暂停、恢复和空闲统一成匿名事件，动作按 `anticipation → groove → settle → recover → idle/sleep` 过渡；收势期间的新输入会回到律动，不重置到第一帧。
+- 参考位图按行为 clip 选择不同帧段，并以较慢节奏逐帧切换；`orangeFox` 使用用户截图生成的透明 4×4 十六帧套图，运行时资源为 `frontend/assets/orange-fox-action-sheet.png`。
+- `SpeechDirector` 使用角色固定短句池，覆盖启动／恢复、首次输入、连续输入、暂停、长时间空闲、摸头、切换主题和意外输入；每句有冷却，设置页提供“偶尔说句话”开关，不接收或保存用户输入文本。
+- 浏览器预览已验证：主题列表显示第 8 位舞伴“害羞橙狐”；切换角色显示主题对白，试打后计数增长并显示短暂对白气泡；设置页显示对白开关。
+- 当前验证：`npm run build` 通过；前端 5 个测试文件、27 项通过；`cargo test --locked --manifest-path src-tauri/Cargo.toml` 22 项通过；`cargo check --locked` 通过；`git diff --check` 通过。
+
+## macOS 已安装客户端重影复查 · 2026-09-29
+
+- 在 `/Applications/FoxBeat.app` 的真实桌面舞伴窗口点击橙狐，复现同时出现两套耳朵、脸和爪子轮廓。该安装包编译于 9 月 28 日 21:02，早于 21:04 的单帧修复；此前前端构建和测试不能证明已安装 App 已更新。
+- 旧安装包内嵌 `index-CPISGON9.js`，仍包含双帧数组、循环绘制和按 `1-w/w` 分配透明度。通过在 Mach-O 中匹配完整 Brotli 资源并解压确认，并非仅根据文件时间判断。
+- 执行 `npm run bundle -- --bundles app`，备份旧 App 到 `src-tauri/target/ghost-fix-backup-20260929/`，正常退出旧进程、更新 `/Applications/FoxBeat.app` 并重新启动。设置文件逐字节保持一致。
+- 新安装包内嵌 `index-x6iXQtD1.js`，解压后的 299,642 字节与当前 `dist/` 逐字节相等，已使用单帧绘制。新安装二进制 SHA-256：`8a39b8d1e4e6299087ed5b4c1a11f4931660c2431235ec4d415a7143b474e2ff`。
+- 新客户端实际点击后连续采集 24 张截图，观察到摸头时的垂耳与恢复竖耳姿态，未再出现两套轮廓叠加。[修复前后对照](generated/verification/macos-ghost-comparison.png)、[连续采样](generated/verification/macos-ghost-animation-samples.png)、[安装包核验记录](generated/verification/macos-ghost-verification.json)。此记录覆盖当前 macOS 橙狐直接互动，不代表全角色、全平台动画验收。
+- 本次完整 Tauri release 打包通过；前端 27 项测试通过。已有 DMG 未重新生成，本次更新的是已安装 App 与本地产出的 `.app`。
+
+## 橙狐连贯位图帧样片 · 2026-09-29
+
+- 从现有橙狐原画清理、对齐 16 张关键姿势，以局部光流形变为轻摆和挥爪各补成 24 张连续帧。运行时按独立动作时钟选帧，叠加不超过 1.8 px、1.5° 的整体轻动；每次只绘制一张角色位图，不做整身双帧交叉淡入。踏步暂时复用轻摆的美术序列。
+- 修复闭眼帧左肩杂色和两张踏步帧脚下的透明缺口。三张图集在白底、深色底逐帧检查；完全透明像素无残留 RGB，低 alpha 像素无彩边。浏览器试玩在 180/320 px 检查轻摆、挥爪、摸头与减少动态开关，未见双轮廓或裁切。挥爪幅度仍较轻。
+- `npm test`：38 项通过；`cargo test --locked --manifest-path src-tauri/Cargo.toml`：22 项通过；`npm run build`、`npm run bundle -- --bundles app`、`git diff --check` 均通过。
+- 已正常退出旧客户端，将当时安装包和设置备份于 `src-tauri/target/orange-motion-backup-20260929/`，替换并启动 `/Applications/FoxBeat.app`。新安装二进制与本次 bundle 的 SHA-256 均为 `d026fb3272fdb1ab11e44c54c1d09c6700c02513054917fd09a031b9df16ca92`，与旧安装包不同；设置文件更新前后 SHA-256 均为 `0c67c3c9b7d623e5e2058ea73a0b6f97f7d84d75e3bb3d2986d56266e4ed8a2e`。
+- 原生小舞伴窗口点击后出现橙狐摸头姿态和对白，轮廓无叠影。原有桌面设置为 `reducedMotion=true`，所以这次原生窗口检查的是安静版；完整舞蹈的正常动态在浏览器试玩与 `generated/orange-fox-sway-preview-v1.webp` 样片中检查。macOS 全局输入权限及 Windows 实机未在本轮复验。
+
+## 八位舞伴动作扩展与橙狐口鼻修复 · 2026-09-29
+
+- 五位代码绘制角色新增各自的待机细节、起势、舞步、摸头、挥手和回位动作；委屈小狐狸、月薪喵各新增轻摆、踏步、挥爪三套 24 帧图集，沿用截图原画风格。角色一次只绘制一个位图帧，并叠加小幅重心位移，不做整身交叉淡入。
+- 橙狐原图中从鼻尖垂向胸前的大块白爪遮住口鼻。使用 Factory `gpt-image-2` 生成小爪版原画，清理边缘后重建十六格动作母图和三套 24 帧图集；踏步现在使用独立抬腿序列。生成提示词见 `prompts/orange-fox-mouth-repair-v2.txt`，动画构建脚本见 `scripts/build-orange-fox-motion.py` 与 `scripts/build-reference-motion.py`。
+- 委屈狐挥爪循环移除双爪突跳，月薪喵挥爪循环移除突然低头；两套参考皮肤和橙狐图集均逐格检查浅色、深色背景及透明边缘。委屈狐原画只有半身，因此“踏步扭扭”表现为上身起伏和侧摆，看不到脚步；月薪喵挥爪仍可见有意的单爪到双爪姿势切换。
+- 浏览器预览在 180/320 px 检查三套舞蹈、切换、试打和收势，橙狐口鼻清楚，未见双轮廓拖影或裁切；390×844 手机宽度下对白气泡与耳尖分开约 10 px，试打区仍在首屏。五套代码角色和月薪喵抽查未见嘴、手、脚或尾巴叠影。此项是浏览器视觉验收，不代表 Windows 或 macOS 透明桌面窗口全场景验收。
+- `npm test` 41/41、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 22/22、`npm run build`、`npm run bundle -- --bundles app` 与 `git diff --check` 通过。新包为 23.99 MiB，已安装至 `/Applications/FoxBeat.app` 并启动；安装包二进制与本地 bundle SHA-256 均为 `a3bcbdeec4a1f95cea5ed6e2a8075eaffdaa7ac25bf854a00cac7f480b8de070`。旧应用与设置备份于 `src-tauri/target/skin-motion-backup-20260929/`；设置文件在替换前后 SHA-256 均为 `e39ec8a7b8d82b186adacd66066b9a29e6ea2f5567f03a026b59465fe54a139f`。
+- 新原生进程已启动，但当前自动化工具未能取得其窗口画面，本轮没有完成新版原生窗口逐帧目视验收；系统级跨应用输入权限和 Windows 实机也未复验。

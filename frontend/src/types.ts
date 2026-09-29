@@ -17,6 +17,7 @@ export interface Settings {
   reducedMotion: boolean;
   autostart: boolean;
   easterEggs: boolean;
+  speechEnabled: boolean;
 }
 
 export interface InputStatus {
@@ -46,4 +47,5 @@ export const DEFAULT_SETTINGS: Settings = {
   reducedMotion: false,
   autostart: false,
   easterEggs: true,
+  speechEnabled: true,
 };

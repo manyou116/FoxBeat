@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAnimationScheduler, type AnimationClock } from './animationScheduler';
-import { DanceEngine, type Motion } from './engine';
+import { CLIP_DURATION_MS, DanceEngine, type Motion } from './engine';
 
 function fixture(background = false, initiallyHidden = false) {
   const state = { hidden: initiallyHidden, paused: false, background };
@@ -129,7 +129,13 @@ describe('desktop and preview animation scheduling', () => {
     vi.advanceTimersByTime(495);
     const last = motions.at(-1)!;
     expect(last.state).toBe('dancing');
-    expect(last.phase).toBeGreaterThan(first.phase + 2);
+    // The hidden desktop WebView still paints each frame. After the 240ms
+    // lead-in, the groove advances on its own visual clock.
+    expect(last.clip).toBe('groove');
+    expect(last.clipElapsedMs).toBeGreaterThan(200);
+    expect(last.clipElapsedMs).toBeLessThan(300);
+    expect(last.clipProgress).toBeCloseTo(last.clipElapsedMs / CLIP_DURATION_MS.groove);
+    expect(last.phase).toBeGreaterThan(first.phase);
     expect(last.energy).toBeGreaterThan(0);
     expect(f.raf).not.toHaveBeenCalled();
     scheduler.dispose();

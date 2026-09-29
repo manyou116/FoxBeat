@@ -1,0 +1,19 @@
+{
+  "verifiedAt": "2026-09-29T00:02:45.072Z",
+  "installedBinary": "/Applications/FoxBeat.app/Contents/MacOS/foxbeat",
+  "sha256": "8a39b8d1e4e6299087ed5b4c1a11f4931660c2431235ec4d415a7143b474e2ff",
+  "frontendMatches": [
+    {
+      "asset": "index-x6iXQtD1.js",
+      "compressedBytes": 86830,
+      "decodedBytes": 299642,
+      "offset": 6388848
+    }
+  ],
+  "settingsUnchanged": true,
+  "nativeInteraction": "Clicked orangeFox in the installed macOS pet window before and after update; captured 24 sequential screenshots after update.",
+  "before": "macos-ghost-before.png",
+  "after": "macos-ghost-after.png",
+  "comparison": "macos-ghost-comparison.png",
+  "samples": "macos-ghost-animation-samples.png"
+}

@@ -17,6 +17,7 @@ function Pet() {
   const [count,setCount]=useState(0);
   const [directClicks,setDirectClicks]=useState(0);
   const [petting,setPetting]=useState(0);
+  const [speech,setSpeech]=useState('');
   const [error,setError]=useState('');
   const gesture=useRef(new PetGesture());
   const dragOffset=useRef({x:0,y:0});
@@ -74,8 +75,9 @@ function Pet() {
         }
       }}
       onPointerUp={()=>gesture.current.end()} onPointerCancel={()=>gesture.current.cancel()} onClick={interact}>
-      <PetCanvas {...state.settings} autoPlay={false} inputCount={count+directClicks*4} petting={petting} paused={state.paused||state.hidden} runInBackground/>
+      <PetCanvas {...state.settings} autoPlay={false} inputCount={count+directClicks*4} petting={petting} paused={state.paused||state.hidden} speechEnabled={state.settings.speechEnabled} onSpeech={setSpeech} runInBackground/>
     </button>
+    {speech&&<div className="pet-speech" role="status" aria-live="polite">{speech}</div>}
     {error&&<div className="pet-error" role="alert">{error}<button onClick={()=>setError('')}>关闭</button></div>}
   </div>;
 }

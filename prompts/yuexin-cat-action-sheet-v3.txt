@@ -1,0 +1,10 @@
+Use case: stylized-concept
+Asset type: 4x4 animation sprite sheet for a small desktop companion.
+Input image 1: the supplied transparent reference image is the exact character design reference.
+Primary request: create one polished 4x4 sprite sheet containing sixteen animation frames of the same Yuexin cat character. Preserve the exact character identity from the reference: beige fur, white belly, blue vertical eyes, white paw covering the face, curled tail, dark brown thick uneven hand-drawn outline, and the same compact proportions.
+Composition/framing: divide the square canvas into sixteen equal cells in reading order, four columns by four rows. Use a genuinely transparent background in every cell. Keep one complete centered full-body sticker in each cell, with the same camera distance and generous padding; no cell may overlap another and no body part may be cropped.
+Choreography in reading order: 1 calm idle with paw covering the face; 2 soft inhale and tiny upward lift; 3 ears perk and tail tip rises; 4 lean right; 5 right foot steps outward; 6 tail swishes to the right; 7 peek from behind the paw; 8 both paws briefly open in a cheerful reveal; 9 tiny hop with tail curled; 10 soft landing squish; 11 lean left; 12 left foot steps outward; 13 tail swishes to the left; 14 one paw waves near the cheek; 15 bashful bow with eyes lowered; 16 return to the calm face-covering idle. Make adjacent frames form a smooth readable animation with clear anticipation, action, and recovery.
+Scene/backdrop: transparent background only, with no floor, shadow, gradient, border, panel line, or scenery.
+Style/medium: refined hand-drawn sticker illustration matching the supplied reference; preserve brush texture and slightly irregular ink edges rather than converting it to generic clean vector art.
+Constraints: same character, palette, face, paw gesture, tail shape, and scale throughout; no text, labels, watermark, props, extra characters, extra limbs, costume changes, mirrored duplicate artifacts, or cropped ears.
+Avoid: photorealism, glossy 3D, anime redesign, corporate vector mascot style, stiff mannequin poses, and random unrelated gestures.

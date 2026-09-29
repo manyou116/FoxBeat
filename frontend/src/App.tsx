@@ -32,8 +32,11 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 const animals: { id: Animal; name: string; note: string; color: string }[] = [
   { id: 'girl', name: '紫瞳女孩', note: '挥挥手，陪你小雀跃', color: 'girl' },
   { id: 'emojiFox', name: '表情小狐狸', note: '大耳朵，藏不住开心', color: 'emojiFox' },
+  { id: 'shyFox', name: '委屈小狐狸', note: '皱皱眉，也要陪你跳', color: 'shyFox' },
   { id: 'fox', name: '小狐狸', note: '灵动，是我的本能', color: 'fox' },
   { id: 'cat', name: '小猫咪', note: '偶尔傲娇，一直陪伴', color: 'cat' },
+  { id: 'yuexinCat', name: '月薪喵', note: '捂捂脸，今天也要上班', color: 'yuexinCat' },
+  { id: 'orangeFox', name: '害羞橙狐', note: '捂嘴偷看，尾巴也会害羞', color: 'orangeFox' },
   { id: 'capybara', name: '水豚', note: '慢一点，也很好', color: 'capybara' },
 ];
 const dances: { id: Dance; name: string; note: string; number: string }[] = [
@@ -84,6 +87,7 @@ export default function App() {
   const [inputCount, setInputCount] = useState(0);
   const [hasTried, setHasTried] = useState(false);
   const [petting, setPetting] = useState(0);
+  const [speech, setSpeech] = useState('');
   const tryRef = useRef<HTMLButtonElement>(null);
   const interactionRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<AppState>(initialState);
@@ -338,7 +342,8 @@ export default function App() {
             <div className={`pet-stage stage-${draft.animal}`}>
               <div className="stage-orbit orbit-one" /><div className="stage-orbit orbit-two" />
               <span className="stage-spark spark-one" /><span className="stage-spark spark-two" />
-              <button className="stage-pet-button" aria-label={`摸摸${animal.name}`} onClick={() => setPetting(count => count + 1)}><span className="scaled-pet-preview" style={{ transform: `scale(${settings.size / 320})`, opacity: settings.opacity }}><PetCanvas animal={draft.animal} dance={draft.dance} mode={settings.mode} reducedMotion={settings.reducedMotion} autoPlay={autoPlay} inputCount={inputCount} petting={petting} sensitivity={settings.sensitivity} easterEggs={settings.easterEggs} className="stage-pet-canvas" /></span></button>
+              <button className="stage-pet-button" aria-label={`摸摸${animal.name}`} onClick={() => setPetting(count => count + 1)}><span className="scaled-pet-preview" style={{ transform: `scale(${settings.size / 320})`, opacity: settings.opacity }}><PetCanvas animal={draft.animal} dance={draft.dance} mode={settings.mode} reducedMotion={settings.reducedMotion} autoPlay={autoPlay} inputCount={inputCount} petting={petting} sensitivity={settings.sensitivity} easterEggs={settings.easterEggs} speechEnabled={settings.speechEnabled} onSpeech={setSpeech} className="stage-pet-canvas" /></span></button>
+              {speech && <span className="speech-bubble" role="status" aria-live="polite">{speech}</span>}
               <span className="stage-caption">{autoPlay ? '完整舞蹈自动播放中' : hasTried ? '你的节奏，我有听见' : '点击下方试打，和我一起跳'}</span>
             </div>
             <div className="preview-info"><h2>{animal.name}<span>·</span>{dance.name}</h2></div>
@@ -374,6 +379,7 @@ export default function App() {
           <RangeControl label="节奏灵敏度" valueLabel={settings.sensitivity < 0.8 ? '轻柔' : settings.sensitivity > 1.2 ? '活泼' : '标准'} min={0.5} max={1.5} step={0.1} value={settings.sensitivity} onChange={value => updateSetting('sensitivity', value)} disabled={controlsDisabled} />
           <Toggle label="减少动态效果" note="减小动作幅度，让陪伴更安静" checked={settings.reducedMotion} onChange={value => updateSetting('reducedMotion', value)} disabled={controlsDisabled} />
           <Toggle label="闲置小彩蛋" note="偶尔眨眼、伸懒腰，陪你发呆" checked={settings.easterEggs} onChange={value => updateSetting('easterEggs', value)} disabled={controlsDisabled} />
+          <Toggle label="偶尔说句话" note="只根据互动节奏说短句，不读取输入内容" checked={settings.speechEnabled} onChange={value => updateSetting('speechEnabled', value)} disabled={controlsDisabled} />
         </section><section className="settings-card"><div className="settings-card-heading"><h2>每次见面</h2><p>需要的时候，我们再出现。</p></div>
           <Toggle label="登录电脑时启动" note={native ? '下次打开电脑，小舞伴自动来报到' : '仅桌面客户端支持，浏览器无法设置'} checked={settings.autostart} onChange={value => updateSetting('autostart', value)} disabled={controlsDisabled || !native} />
           <div className="settings-divider" /><div className="input-status-detail"><span className={`status-dot${ready ? ' live' : ''}`} /><div><strong>{!native ? '当前为浏览器预览' : sourcesOff ? '所有输入来源已关闭' : manualOnly ? '当前为手动试玩模式' : ready ? '输入跟随已就绪' : starting ? '正在启动输入跟随' : '输入跟随尚未就绪'}</strong><p>{app.status.message || '可以先在主题中心手动试玩。'}</p></div></div>

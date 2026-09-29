@@ -1,0 +1,14 @@
+Use case: stylized-concept
+Asset type: a game companion animation sprite sheet
+Primary request: Using the supplied reference image as the exact character design, create a polished 4 by 2 animation sprite sheet for the same small orange fox sticker. Keep the character identity, proportions, warm orange fur, dark brown uneven hand-drawn outline, white muzzle, white raised paw covering the mouth, worried slanted eyebrows, and soft red blush exactly consistent in every cell. Each cell contains one complete character on a clean plain warm-white background, with generous padding and no overlap between cells. Arrange eight poses in reading order: 1 idle front pose, 2 subtle bob down, 3 lean left, 4 lean right, 5 left step, 6 right step, 7 both paws lifted in a cheerful wave, 8 shy lowered pose. The poses should be readable but restrained, suitable for a desktop typing companion.
+Input images: Image 1 is the character reference; preserve its visual identity and hand-drawn texture.
+Scene/backdrop: flat warm-white background inside each cell, no scenery.
+Subject: one orange fox sticker only, repeated consistently across all eight cells.
+Style/medium: refined 2D hand-drawn sticker illustration, slightly textured brush edges, thick dark brown outline, flat colors with gentle airbrushed blush.
+Composition/framing: square 2048x2048 sprite sheet, exact 4 columns by 2 rows, equal cell spacing, full character visible in each cell, centered in each cell.
+Lighting/mood: soft even illustration lighting, cute bashful mood.
+Color palette: orange, cream white, dark chocolate brown, muted coral blush.
+Materials/textures: preserve the imperfect ink edges and subtle painterly color variation from the reference.
+Text (verbatim): none.
+Constraints: no text, no watermark, no extra characters, no props, no scene, no gradients behind the cells, no mirrored duplicate artifacts, keep all eight poses the same character and scale.
+Avoid: photorealism, 3D rendering, glossy vector icon style, clean geometric outlines, different species, costume changes, cropped ears, cropped paws, panel borders.

@@ -181,7 +181,7 @@ npm run bundle -- --bundles nsis
 
 更新已安装的 macOS 客户端时，先执行 `npm run bundle -- --bundles app`，在菜单中选择“退出狐伴”，然后用 `src-tauri/target/release/bundle/macos/FoxBeat.app` 替换 `/Applications/FoxBeat.app` 并重新启动。Tauri 发布版把前端资源嵌入可执行文件；仅执行 `npm run build` 会更新 `dist/`，已安装的客户端仍会运行旧代码。
 
-已提供三平台 GitHub Actions 配置：`windows-2022` 构建 x64 NSIS，`macos-15` 构建 Apple Silicon 应用与 DMG，`macos-15-intel` 构建 Intel 应用与 DMG。macOS 应用以 `.app.tar.gz` 上传，保留可执行权限与符号链接。该工作流仅是仓库配置，本次没有推送、触发 CI 或发布 Release；未配置签名凭据。
+已提供三平台 GitHub Actions 配置：`windows-2022` 构建 x64 NSIS，`macos-15` 构建 Apple Silicon 应用与 DMG，`macos-15-intel` 构建 Intel 应用与 DMG。macOS 应用以 `.app.tar.gz` 上传，保留可执行权限与符号链接。推送 `v<版本号>` 标签（例如 `v0.1.0`，需与 `package.json`、`src-tauri/tauri.conf.json` 的版本一致）后，三平台构建全部通过才会自动创建 GitHub Release，上传带平台名称的安装包、应用归档和 `SHA256SUMS`。普通分支推送和 PR 只运行构建，不发布 Release。当前未配置签名凭据，自动发布的产物标记为开发预览版；正式发行前仍需 Windows 签名及 macOS 签名、公证。
 
 此前 5 位舞伴的渲染检查覆盖 2,880 个样本，未发现画布裁切；新增角色仍需补充同等规模的渲染回归检查。[新增舞伴动作预览](companions-preview.png) 展示待机、踏步、挥手与摸头。
 

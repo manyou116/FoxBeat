@@ -495,7 +495,6 @@ fn main() {
         }))
         .plugin(
             tauri_plugin_autostart::Builder::new()
-                .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
                 .args(["--autostart"])
                 .build(),
         )

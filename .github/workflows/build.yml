@@ -145,8 +145,8 @@ jobs:
         run: |
           shopt -s nullglob
           windows=(artifacts/windows-x64/*.exe)
-          arm_dmg=(artifacts/macos-arm64/*.dmg)
-          intel_dmg=(artifacts/macos-x64/*.dmg)
+          arm_dmg=(artifacts/macos-arm64/dmg/*.dmg)
+          intel_dmg=(artifacts/macos-x64/dmg/*.dmg)
           test "${#windows[@]}" -eq 1
           test "${#arm_dmg[@]}" -eq 1
           test "${#intel_dmg[@]}" -eq 1

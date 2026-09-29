@@ -123,3 +123,11 @@
 - 浏览器预览在 180/320 px 检查三套舞蹈、切换、试打和收势，橙狐口鼻清楚，未见双轮廓拖影或裁切；390×844 手机宽度下对白气泡与耳尖分开约 10 px，试打区仍在首屏。五套代码角色和月薪喵抽查未见嘴、手、脚或尾巴叠影。此项是浏览器视觉验收，不代表 Windows 或 macOS 透明桌面窗口全场景验收。
 - `npm test` 41/41、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 22/22、`npm run build`、`npm run bundle -- --bundles app` 与 `git diff --check` 通过。新包为 23.99 MiB，已安装至 `/Applications/FoxBeat.app` 并启动；安装包二进制与本地 bundle SHA-256 均为 `a3bcbdeec4a1f95cea5ed6e2a8075eaffdaa7ac25bf854a00cac7f480b8de070`。旧应用与设置备份于 `src-tauri/target/skin-motion-backup-20260929/`；设置文件在替换前后 SHA-256 均为 `e39ec8a7b8d82b186adacd66066b9a29e6ea2f5567f03a026b59465fe54a139f`。
 - 新原生进程已启动，但当前自动化工具未能取得其窗口画面，本轮没有完成新版原生窗口逐帧目视验收；系统级跨应用输入权限和 Windows 实机也未复验。
+
+## 橙狐眨眼、抬爪与爱心互动 · 2026-09-29
+
+- 参考用户截图，使用 Factory `gpt-image-2` 制作透明关键姿势，构建 12 帧独立图集。点击主题预览或桌面橙狐会播放约 1.2 秒的眨眼、抬爪、爪垫与爱心动作，再回待机或继续舞蹈；低动态模式使用固定关键姿势。资源及复建脚本分别在 `frontend/assets/orange-fox-wink-v1.png`、`scripts/build-orange-fox-wink.py`，白/深底逐帧预览在 `generated/orange-fox-wink-*-contact-v1.png`。
+- 图集首尾帧与现有中性帧逐像素一致；脚底水平中心在 12 帧间跨度 0.77px，所有帧四边透明，爱心离右边至少 14px。白/深底逐帧检查未见口鼻遮挡、裁切或双轮廓。
+- 浏览器预览点击后约 0.35 秒可见眨眼抬爪，约 0.6 秒可见爪垫和爱心；完整舞蹈中点击也能播完互动再恢复舞蹈。低动态关键姿势已抽查；重对齐图集后又复测了普通预览。
+- `npm test` 44/44、`npm run build`、`npm run bundle -- --bundles app`、`git diff --check` 均通过。新 `.app` 约 24.97 MiB，已备份旧安装版和设置至 `src-tauri/target/orange-wink-backup-20260929/`，替换并启动 `/Applications/FoxBeat.app`。安装二进制和本地 bundle 的 SHA-256 均为 `9709c48b1888c3f0001201cfe514d993610f9ee5d2ca96007950df2bc204cc1e`，不同于旧版；二进制内含新图集资源名。
+- 已安装客户端的 408×408 桌面宠物窗口点击后约 0.45 秒，目视确认单眼眨眼、粉色爪垫和两颗爱心；连续截图未见明显横向跳动或透明拖影，鼻尖与嘴线完整。启动及窗口验证期间，现有 `ensure_visible` / `Moved` 逻辑将保存的位置从 `(3408,1672)` 改为 `(6864,742)`；其余设置字段未变，原设置仍在上述备份中。本项覆盖当前 macOS 橙狐直接点击互动，不代表 Windows 实机或全角色验收。

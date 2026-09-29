@@ -11,6 +11,7 @@ import orangeFoxActionsUrl from '../assets/orange-fox-actions-clean-v3.png';
 import orangeFoxSwayUrl from '../assets/orange-fox-sway-v3.png';
 import orangeFoxStepUrl from '../assets/orange-fox-step-v3.png';
 import orangeFoxWaveUrl from '../assets/orange-fox-wave-v3.png';
+import orangeFoxWinkUrl from '../assets/orange-fox-wink-v1.png';
 import type { BehaviorClip } from './engine';
 import { selectBitmapFrame, type BitmapAtlas, type BitmapFrame } from './bitmapAnimation';
 
@@ -103,10 +104,11 @@ const COLORS: Record<Animal, Palette> = {
 const TAU = Math.PI * 2;
 
 type BitmapAnimal = 'shyFox' | 'yuexinCat' | 'orangeFox';
-const BITMAP_SHEETS: Record<BitmapAnimal, Record<BitmapAtlas, string>> = {
+type BitmapSheets = Record<Exclude<BitmapAtlas, 'wink'>, string> & { wink?: string };
+const BITMAP_SHEETS: Record<BitmapAnimal, BitmapSheets> = {
   shyFox: { actions: shyFoxActionsUrl, sway: shyFoxSwayUrl, step: shyFoxStepUrl, wave: shyFoxWaveUrl },
   yuexinCat: { actions: yuexinCatActionsUrl, sway: yuexinCatSwayUrl, step: yuexinCatStepUrl, wave: yuexinCatWaveUrl },
-  orangeFox: { actions: orangeFoxActionsUrl, sway: orangeFoxSwayUrl, step: orangeFoxStepUrl, wave: orangeFoxWaveUrl },
+  orangeFox: { actions: orangeFoxActionsUrl, sway: orangeFoxSwayUrl, step: orangeFoxStepUrl, wave: orangeFoxWaveUrl, wink: orangeFoxWinkUrl },
 };
 const bitmapImages: Partial<Record<BitmapAnimal, Partial<Record<BitmapAtlas, HTMLImageElement>>>> = {};
 interface BitmapPlayback {
@@ -117,13 +119,15 @@ interface BitmapPlayback {
 const bitmapPlayback = new WeakMap<CanvasRenderingContext2D, Partial<Record<BitmapAnimal, BitmapPlayback>>>();
 
 function getBitmapImage(animal: BitmapAnimal, atlas: BitmapAtlas): HTMLImageElement | undefined {
+  const url = BITMAP_SHEETS[animal][atlas];
+  if (!url) return undefined;
   const images = bitmapImages[animal] ?? (bitmapImages[animal] = {});
   const cached = images[atlas];
   if (cached) return cached.complete && cached.naturalWidth > 0 ? cached : undefined;
   if (typeof Image === 'undefined') return undefined;
   const image = new Image();
   image.decoding = 'async';
-  image.src = BITMAP_SHEETS[animal][atlas];
+  image.src = url;
   images[atlas] = image;
   return undefined;
 }
@@ -638,6 +642,7 @@ function bitmapClip(options: RenderOptions): BehaviorClip {
 function drawBitmapCompanion(
   ctx: CanvasRenderingContext2D, animal: BitmapAnimal, pose: Pose, p: Palette, options: RenderOptions,
 ): void {
+  if (animal === 'orangeFox') getBitmapImage(animal, 'wink');
   const clip = bitmapClip(options);
   const instances = bitmapPlayback.get(ctx) ?? {};
   const playback = instances[animal] ?? {};
@@ -647,6 +652,7 @@ function drawBitmapCompanion(
     playback.settleFrom = undefined;
   }
   const selected = selectBitmapFrame({
+    animal,
     clip,
     dance: options.dance,
     phase: options.phase,
@@ -963,6 +969,6 @@ export function renderPet(
   ctx.restore();
 
   if (pose.sleeping) drawSleepBubble(ctx, Number.isFinite(options.phase) ? options.phase : 0, !!options.reducedMotion);
-  drawAffection(ctx, pose.affection, !!options.reducedMotion);
+  if (animal !== 'orangeFox') drawAffection(ctx, pose.affection, !!options.reducedMotion);
   ctx.restore();
 }

@@ -194,7 +194,9 @@ export class BehaviorController {
     const dt = visualDeltaMs / 1000;
     this.lastTime = now;
 
-    if (autoplay) {
+    const reactionDuration = this.behavior === 'pet' ? PET_MS
+      : this.behavior === 'greet' ? GREET_MS : 0;
+    if (autoplay && (!reactionDuration || now - this.behaviorAt >= reactionDuration)) {
       this.transition('groove', now);
       this.phase = (this.phase + dt * GROOVE_PHASE_RATE * 0.94) % TAU;
       const result = this.buildMotion('groove', 0.78);

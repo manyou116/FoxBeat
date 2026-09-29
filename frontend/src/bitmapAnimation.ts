@@ -1,16 +1,18 @@
 import { CLIP_DURATION_MS, type BehaviorClip } from './engine';
-import type { Dance } from './petRenderer';
+import type { Animal, Dance } from './petRenderer';
 
 const TAU = Math.PI * 2;
 const GROOVE_FRAMES = 24;
+const WINK_FRAMES = 12;
 
-export type BitmapAtlas = 'actions' | 'sway' | 'step' | 'wave';
+export type BitmapAtlas = 'actions' | 'sway' | 'step' | 'wave' | 'wink';
 export interface BitmapFrame {
   atlas: BitmapAtlas;
   frame: number;
 }
 
 export interface BitmapFrameOptions {
+  animal?: Animal;
   clip: BehaviorClip;
   dance: Dance;
   phase: number;
@@ -67,6 +69,12 @@ function settleFrame(from: BitmapFrame, progress: number): BitmapFrame {
 /** Select one registered bitmap cell; no full-character frame blending occurs. */
 export function selectBitmapFrame(options: BitmapFrameOptions): BitmapFrame {
   const progress = progressFor(options);
+  if (options.animal === 'orangeFox' && options.clip === 'pet') {
+    return {
+      atlas: 'wink',
+      frame: options.reducedMotion ? 6 : Math.min(WINK_FRAMES - 1, Math.floor(progress * WINK_FRAMES)),
+    };
+  }
   if (options.reducedMotion) {
     return { atlas: 'actions', frame: sequenceFrame(QUIET_SEQUENCES[options.clip], progress) };
   }

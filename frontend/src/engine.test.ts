@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { CLIP_DURATION_MS, DanceEngine } from './engine';
 
-function sampleEvery(engine: DanceEngine, from: number, to: number, interval = 40) {
-  for (let at = from + interval; at < to; at += interval) engine.sample(at);
-  return engine.sample(to);
+function sampleEvery(engine: DanceEngine, from: number, to: number, interval = 40, autoplay = false) {
+  for (let at = from + interval; at < to; at += interval) engine.sample(at, autoplay);
+  return engine.sample(to, autoplay);
 }
 
 describe('anonymous input animation clock', () => {
@@ -42,6 +42,33 @@ describe('anonymous input animation clock', () => {
     expect(after.clip).toBe('groove');
     expect(after.clipElapsedMs - before.clipElapsedMs).toBe(64);
     expect(Math.floor(after.clipProgress * 36) - Math.floor(before.clipProgress * 36)).toBeLessThanOrEqual(1);
+  });
+
+  it('lets a pet reaction finish before automatic dancing resumes', () => {
+    const e = new DanceEngine();
+    expect(e.sample(0, true).clip).toBe('groove');
+    e.pet(300);
+    expect(e.sample(300, true)).toMatchObject({ clip: 'pet', clipProgress: 0 });
+    expect(sampleEvery(e, 300, 900, 40, true)).toMatchObject({ clip: 'pet', clipProgress: 0.5 });
+    expect(sampleEvery(e, 900, 1_499, 40, true).clip).toBe('pet');
+    expect(e.sample(1_500, true)).toMatchObject({ clip: 'groove', clipProgress: 0 });
+    expect(sampleEvery(e, 1_500, 1_700, 40, true).clipProgress).toBeGreaterThan(0);
+  });
+
+  it('keeps a greeting and a repeated pet on their own autoplay timelines', () => {
+    const e = new DanceEngine();
+    e.click(0);
+    expect(e.sample(0, true).clip).toBe('greet');
+    expect(sampleEvery(e, 0, 849, 40, true).clip).toBe('greet');
+    expect(e.sample(850, true).clip).toBe('groove');
+
+    e.pet(1_000);
+    expect(e.sample(1_000, true).clip).toBe('pet');
+    sampleEvery(e, 1_000, 1_800, 40, true);
+    e.pet(1_800);
+    expect(e.sample(1_800, true)).toMatchObject({ clip: 'pet', clipProgress: 0 });
+    expect(sampleEvery(e, 1_800, 2_999, 40, true).clip).toBe('pet');
+    expect(e.sample(3_000, true).clip).toBe('groove');
   });
 
   it('uses wall time for inactivity even when only one visual frame passes', () => {

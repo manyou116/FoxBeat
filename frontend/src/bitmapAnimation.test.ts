@@ -30,4 +30,13 @@ describe('bitmap companion frame selection', () => {
     expect(selectBitmapFrame({ ...base, clipProgress: 0.5, reducedMotion: true })).toEqual({ atlas: 'actions', frame: 0 });
     expect(selectBitmapFrame({ ...base, clip: 'sleep', reducedMotion: true })).toEqual({ atlas: 'actions', frame: 14 });
   });
+
+  it('plays the orange fox wink reaction once and holds its key pose in quiet mode', () => {
+    const wink = { ...base, animal: 'orangeFox' as const, clip: 'pet' as const };
+    expect(selectBitmapFrame({ ...wink, clipProgress: 0 })).toEqual({ atlas: 'wink', frame: 0 });
+    expect(selectBitmapFrame({ ...wink, clipProgress: 0.5 })).toEqual({ atlas: 'wink', frame: 6 });
+    expect(selectBitmapFrame({ ...wink, clipProgress: 1 })).toEqual({ atlas: 'wink', frame: 11 });
+    expect(selectBitmapFrame({ ...wink, clipProgress: 0.5, reducedMotion: true })).toEqual({ atlas: 'wink', frame: 6 });
+    expect(selectBitmapFrame({ ...base, animal: 'shyFox', clip: 'pet', clipProgress: 0.5 })).toEqual({ atlas: 'actions', frame: 9 });
+  });
 });

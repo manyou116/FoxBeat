@@ -9,3 +9,5 @@ dist/
 node_modules/
 src-tauri/target/
 *.tsbuildinfo
+# Image generation run metadata can contain local paths and provider endpoints.
+generated/**/*.meta.json

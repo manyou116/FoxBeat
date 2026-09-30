@@ -90,4 +90,10 @@
 }
 .try-feedback { display: inline-flex; align-items: center; gap: 7px; color: #68805e; font-size: 11px; font-variant-numeric: tabular-nums; }
 .preview-interaction .try-pad > span:last-child { margin-top: 0; }
+.preview-whip-actions { display:flex; justify-content:center; gap:8px; margin-top:10px; }
+.preview-whip-button { padding:6px 12px; border:1px solid #d9c4aa; border-radius:6px; background:#fff8ed; color:#77523e; font:inherit; font-size:11px; cursor:pointer; }
+.preview-whip-button:hover { background:#f7ead8; }
+.preview-whip-button.strong { border-color:#cf8b76; background:#fbe5de; color:#873e31; }
+.preview-whip-button.strong:hover { background:#f5d4ca; }
+.preview-whip-button:focus-visible { outline:2px solid #b98761; outline-offset:2px; }
 .preview-size-controls { margin-top: 18px; }

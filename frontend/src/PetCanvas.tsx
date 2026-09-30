@@ -6,7 +6,7 @@ import { SpeechDirector, type CompanionSpeechEvent } from './speech';
 
 export interface PetCanvasProps {
   animal: Animal; dance: Dance; mode: Mode; reducedMotion?: boolean;
-  autoPlay?: boolean; inputCount?: number; petting?: number; className?: string;
+  autoPlay?: boolean; inputCount?: number; petting?: number; whipCount?: number; hardWhipCount?: number; className?: string;
   sensitivity?: number; paused?: boolean; easterEggs?: boolean;
   speechEnabled?: boolean; onSpeech?: (text: string) => void;
   /** Desktop pets can remain visible even when the WebView reports hidden. */
@@ -21,6 +21,8 @@ export default function PetCanvas(props: PetCanvasProps) {
   const latest = useRef(props);
   const previousCount = useRef(props.inputCount ?? 0);
   const previousPetting = useRef(props.petting ?? 0);
+  const previousWhipCount = useRef(props.whipCount ?? 0);
+  const previousHardWhipCount = useRef(props.hardWhipCount ?? 0);
   const petUntil = useRef(0);
   const lastMotionState = useRef<string>('idle');
   const initialAnimal = useRef(props.animal);
@@ -85,6 +87,16 @@ export default function PetCanvas(props: PetCanvasProps) {
     previousPetting.current = props.petting ?? 0;
     requestPaint.current();
   }, [props.petting]);
+  useEffect(() => {
+    const gentleChanged = (props.whipCount ?? 0) !== previousWhipCount.current;
+    const strongChanged = (props.hardWhipCount ?? 0) !== previousHardWhipCount.current;
+    if ((gentleChanged || strongChanged) && !props.paused && (props.animal === 'shyFox' || props.animal === 'orangeFox' || props.animal === 'fox' || props.animal === 'emojiFox')) {
+      engine.current.event({ type: 'whip', strength: strongChanged ? 'strong' : 'gentle', now: performance.now() });
+      requestPaint.current();
+    }
+    previousWhipCount.current = props.whipCount ?? 0;
+    previousHardWhipCount.current = props.hardWhipCount ?? 0;
+  }, [props.whipCount, props.hardWhipCount, props.paused, props.animal]);
 
   useEffect(() => {
     if (initialAnimal.current === props.animal) return;
@@ -129,6 +141,7 @@ export default function PetCanvas(props: PetCanvasProps) {
         motion.clipProgress = 0;
         motion.phase = 0;
       }
+      el.dataset.clip = motion.clip;
       const petting = Math.max(0, (petUntil.current - now) / 1600);
       renderPet(context, rect.width, rect.height, {
         animal: p.animal, dance: p.dance, ...motion,

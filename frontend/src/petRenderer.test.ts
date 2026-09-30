@@ -36,16 +36,41 @@ describe('drawn companion choreography', () => {
     }
   });
 
+  it('waits for whip contact before flinching and finishes at the resting pose', () => {
+    for (const animal of ['fox', 'emojiFox'] as const) {
+      const rest = getVectorPose(options(animal, 'whip', 0));
+      expect(getVectorPose(options(animal, 'whip', 0.4))).toEqual(rest);
+      const recoil = getVectorPose(options(animal, 'whip', 0.52));
+      expect(recoil.x).toBeLessThan(rest.x);
+      expect(recoil.y).toBeLessThan(rest.y);
+      expect(getVectorPose(options(animal, 'whip', 1))).toEqual(rest);
+    }
+  });
+
   it('keeps all poses finite through clip boundaries and dance types', () => {
     for (const animal of drawn) {
       for (const dance of ['sway', 'step', 'wave'] as const) {
-        for (const clip of ['idle', 'anticipation', 'groove', 'settle', 'recover', 'sleep', 'pet', 'greet'] as const) {
+        for (const clip of ['idle', 'anticipation', 'groove', 'settle', 'recover', 'sleep', 'pet', 'greet', 'whip', 'whip-hard'] as const) {
           for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
             const pose = getVectorPose({ ...options(animal, clip, progress), dance });
             expect(Object.values(pose).filter((value) => typeof value === 'number').every(Number.isFinite)).toBe(true);
           }
         }
       }
+    }
+  });
+
+  it('makes the strong recoil larger, honors reduced motion, and returns to rest', () => {
+    for (const animal of ['fox', 'emojiFox'] as const) {
+      const rest = getVectorPose(options(animal, 'whip-hard', 0));
+      expect(getVectorPose(options(animal, 'whip-hard', 0.29))).toEqual(rest);
+      const gentle = getVectorPose(options(animal, 'whip', 0.52));
+      const strong = getVectorPose(options(animal, 'whip-hard', 0.53));
+      expect(strong.x).toBeLessThan(gentle.x);
+      expect(strong.y).toBeLessThan(gentle.y);
+      const quiet = getVectorPose({ ...options(animal, 'whip-hard', 0.53), reducedMotion: true });
+      expect(Math.abs(quiet.x - rest.x)).toBeLessThan(Math.abs(strong.x - rest.x));
+      expect(getVectorPose(options(animal, 'whip-hard', 1))).toEqual(rest);
     }
   });
 });

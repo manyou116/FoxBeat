@@ -14,6 +14,7 @@ import orangeFoxWaveUrl from '../assets/orange-fox-wave-v3.png';
 import orangeFoxWinkUrl from '../assets/orange-fox-wink-v1.png';
 import type { BehaviorClip } from './engine';
 import { selectBitmapFrame, type BitmapAtlas, type BitmapFrame } from './bitmapAnimation';
+import { isWhipClip, smoothStep, whipRecoil, whipStrike } from './whipAnimation';
 
 export type Animal = 'fox' | 'emojiFox' | 'girl' | 'cat' | 'capybara' | 'shyFox' | 'yuexinCat' | 'orangeFox';
 export type Dance = 'sway' | 'step' | 'wave';
@@ -251,8 +252,8 @@ export function getVectorPose(options: RenderOptions): Pose {
   const energy = bounded(options.energy) * motion;
   const beat = Math.sin(t);
   const follow = Math.sin(t - 0.65);
-  const pose = getPose(clip === 'pet' || clip === 'greet'
-    ? { ...options, state: 'idle' } : options);
+  const pose = getPose(isWhipClip(clip) ? { ...options, state: 'idle', phase: 0, petting: 0 }
+    : clip === 'pet' || clip === 'greet' ? { ...options, state: 'idle' } : options);
 
   if (clip === 'idle') {
     switch (options.animal) {
@@ -308,6 +309,27 @@ export function getVectorPose(options: RenderOptions): Pose {
     pose.leftLift *= lead;
     pose.rightLift *= lead;
     pose.breath = 1 + (pose.breath - 1) * lead;
+    return pose;
+  }
+
+  if (isWhipClip(clip)) {
+    const hard = clip === 'whip-hard';
+    const recoil = whipRecoil(progress, hard) * motion;
+    pose.x -= (hard ? 24 : 11) * recoil;
+    pose.y -= (hard ? 22 : 7) * recoil;
+    pose.body -= (hard ? 11 : 5) * recoil;
+    pose.head -= (hard ? 20 : 12) * recoil;
+    pose.tail -= (hard ? 30 : 18) * recoil;
+    pose.leftEar -= (hard ? 18 : 8) * recoil;
+    pose.rightEar += (hard ? 20 : 10) * recoil;
+    pose.eyes = Math.min(pose.eyes, 1 - 0.8 * recoil);
+    pose.leftArm += (hard ? 35 : 18) * recoil;
+    pose.rightArm -= (hard ? 42 : 22) * recoil;
+    if (hard) {
+      pose.leftLift += 7 * recoil;
+      pose.rightLift += 4 * recoil;
+      pose.breath -= 0.06 * recoil;
+    }
     return pose;
   }
 
@@ -689,6 +711,88 @@ function drawBitmapCompanion(
     -width / 2 + 1, -194, width, width);
 }
 
+function drawToyWhip(
+  ctx: CanvasRenderingContext2D, progress: number, reducedMotion: boolean,
+  contact: { x: number; y: number }, hard = false,
+): void {
+  const p = bounded(progress);
+  const { snap, rebound, reach: strikeReach, impact } = whipStrike(p, hard);
+  const enter = smoothStep(p / 0.2);
+  const retreat = smoothStep((p - (hard ? 0.83 : 0.72)) / (hard ? 0.17 : 0.28));
+  const gripX = reducedMotion ? 282 : 315 - 33 * enter + 33 * retreat - (hard ? 5 * strikeReach : 0);
+  const gripY = (hard ? 207 : 225) + (hard ? 20 : 7) * snap - (hard ? 20 : 7) * rebound;
+  const reach = reducedMotion ? strikeReach >= 0.5 ? 1 : 0 : strikeReach;
+  const tipX = (gripX - (hard ? 8 : 19)) * (1 - reach) + contact.x * reach;
+  const tipY = (gripY - (reducedMotion ? 25 : hard ? 83 : 48)) * (1 - reach) + contact.y * reach;
+  const bendAmount = hard ? strikeReach : snap;
+  const bendX = gripX - (hard ? 62 : 40) - (hard ? 22 : 14) * bendAmount;
+  const bendY = gripY - (hard ? 58 : 28) * (1 - bendAmount) + (hard ? 37 : 25) * bendAmount;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, p * 9, (1 - p) * 8);
+  if (hard && !reducedMotion && reach > 0.15 && rebound < 0.7) {
+    ctx.save();
+    ctx.globalAlpha *= Math.sin(reach * Math.PI) * 0.55;
+    ctx.strokeStyle = '#C99161';
+    ctx.lineWidth = 2;
+    for (const offset of [8, 18]) {
+      ctx.beginPath();
+      ctx.moveTo(gripX - 12 + offset, gripY - 69);
+      ctx.quadraticCurveTo(gripX - 67 + offset, gripY - 24, contact.x + offset, contact.y - 12);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.strokeStyle = '#4B3028';
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(gripX, gripY);
+  ctx.bezierCurveTo(gripX - 9, gripY - 19, bendX, bendY, tipX, tipY);
+  ctx.stroke();
+  ctx.strokeStyle = '#B7784E';
+  ctx.lineWidth = 2.1;
+  ctx.beginPath();
+  ctx.moveTo(gripX, gripY);
+  ctx.bezierCurveTo(gripX - 9, gripY - 19, bendX, bendY, tipX, tipY);
+  ctx.stroke();
+  ctx.fillStyle = '#D68D5B';
+  ctx.strokeStyle = '#4B3028';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(tipX, tipY, 3, 5, -0.7, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(gripX + 4, gripY + 7);
+  ctx.lineTo(gripX - 5, gripY - 13);
+  ctx.stroke();
+  ctx.fillStyle = '#FFF7ED';
+  ctx.beginPath();
+  ctx.ellipse(gripX + 9, gripY + 8, 14, 11, -0.45, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  if (!reducedMotion && impact > 0) {
+    ctx.globalAlpha *= impact;
+    ctx.strokeStyle = '#F2B84B';
+    ctx.lineWidth = hard ? 3.5 : 2.5;
+    if (hard) {
+      ctx.save();
+      ctx.translate(contact.x, contact.y);
+      ctx.scale(0.65 + impact * 0.45, 0.65 + impact * 0.45);
+      drawPath(ctx, 'M0-13 L4-5 L13-7 L8 1 L14 7 L5 8 L1 16 L-4 8 L-12 10 L-8 2 L-14-4 L-5-5 Z', '#FFD76C', '#C77A37');
+      ctx.restore();
+    }
+    for (const angle of [-0.9, 0.15, 1.15]) {
+      const x = contact.x + Math.cos(angle) * (hard ? 18 : 8);
+      const y = contact.y + Math.sin(angle) * (hard ? 18 : 8);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(angle) * (hard ? 13 : 9), y + Math.sin(angle) * (hard ? 13 : 9));
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 function drawHead(ctx: CanvasRenderingContext2D, animal: Animal, pose: Pose, p: Palette): void {
   ctx.save();
   ctx.translate(0, (animal === 'capybara' ? -70 : -77) + pose.headY);
@@ -944,16 +1048,23 @@ export function renderPet(
   const bitmapAmount = options.reducedMotion || options.state === 'sleeping' ? 0
     : activeClip === 'groove' ? 1 : activeClip === 'idle' ? 0.25
       : activeClip === 'settle' || activeClip === 'recover' ? (1 - progress) * 0.5 : 0.45;
-  const bitmapSwing = activeClip === 'groove' || activeClip === 'idle'
+  const bitmapSwing = isWhipClip(activeClip) ? 0 : activeClip === 'groove' || activeClip === 'idle'
     ? Math.sin(progress * TAU) : Math.sin(progress * Math.PI);
   const stepping = isBitmap && activeClip === 'groove' && options.dance === 'step';
-  const bitmapX = bitmapSwing * (stepping ? 2.5 : 1.8) * bitmapAmount;
+  const hardWhip = options.clip === 'whip-hard';
+  const whipReaction = isWhipClip(options.clip) && !options.reducedMotion ? whipRecoil(progress, hardWhip) : 0;
+  const bitmapX = bitmapSwing * (stepping ? 2.5 : 1.8) * bitmapAmount - (hardWhip ? 24 : 11) * whipReaction;
   const bitmapY = stepping
     ? -Math.max(0, Math.sin(progress * TAU * 2)) * 4 * bitmapAmount
     : -Math.abs(bitmapSwing) * 1.2 * bitmapAmount;
-  ctx.translate(151 + (isBitmap ? bitmapX : pose.x), 215 + (isBitmap ? bitmapY : pose.y));
-  rotate(ctx, isBitmap ? bitmapSwing * 1.5 * bitmapAmount : pose.body);
-  ctx.scale(1, isBitmap ? 1 + Math.sin(progress * TAU) * 0.002 * bitmapAmount : pose.breath);
+  const characterX = 151 + (isBitmap ? bitmapX : pose.x);
+  const characterY = 215 + (isBitmap ? bitmapY - (hardWhip ? 22 : 7) * whipReaction : pose.y);
+  const characterAngle = (isBitmap ? bitmapSwing * 1.5 * bitmapAmount - (hardWhip ? 11 : 5) * whipReaction : pose.body) * Math.PI / 180;
+  const characterStretch = isBitmap ? 1 + Math.sin(progress * TAU) * 0.002 * bitmapAmount - (hardWhip ? 0.09 * whipReaction : 0) : pose.breath;
+  const characterWidth = isBitmap && hardWhip ? 1 + 0.045 * whipReaction : 1;
+  ctx.translate(characterX, characterY);
+  ctx.rotate(characterAngle);
+  ctx.scale(characterWidth, characterStretch);
   if (animal === 'girl') drawGirl(ctx, pose, p);
   else if (animal === 'emojiFox') drawEmojiFox(ctx, pose, p);
   else if (isBitmap) drawBitmapCompanion(ctx, animal, pose, p, options);
@@ -967,6 +1078,18 @@ export function renderPet(
     drawHead(ctx, animal, pose, p);
   }
   ctx.restore();
+
+  if (isWhipClip(options.clip)) {
+    // Hip anchors are in the character's local drawing coordinates, near the tail base.
+    const hip = animal === 'orangeFox' ? { x: 44, y: 40 }
+      : animal === 'shyFox' ? { x: 70, y: 54 }
+        : animal === 'emojiFox' ? { x: 24, y: 43 } : { x: 30, y: 41 };
+    const contact = {
+      x: characterX + hip.x * characterWidth * Math.cos(characterAngle) - hip.y * characterStretch * Math.sin(characterAngle),
+      y: characterY + hip.x * characterWidth * Math.sin(characterAngle) + hip.y * characterStretch * Math.cos(characterAngle),
+    };
+    drawToyWhip(ctx, progress, !!options.reducedMotion, contact, hardWhip);
+  }
 
   if (pose.sleeping) drawSleepBubble(ctx, Number.isFinite(options.phase) ? options.phase : 0, !!options.reducedMotion);
   if (animal !== 'orangeFox') drawAffection(ctx, pose.affection, !!options.reducedMotion);

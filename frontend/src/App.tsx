@@ -87,6 +87,8 @@ export default function App() {
   const [inputCount, setInputCount] = useState(0);
   const [hasTried, setHasTried] = useState(false);
   const [petting, setPetting] = useState(0);
+  const [whipCount, setWhipCount] = useState(0);
+  const [hardWhipCount, setHardWhipCount] = useState(0);
   const [speech, setSpeech] = useState('');
   const tryRef = useRef<HTMLButtonElement>(null);
   const interactionRef = useRef<HTMLDivElement>(null);
@@ -342,11 +344,12 @@ export default function App() {
             <div className={`pet-stage stage-${draft.animal}`}>
               <div className="stage-orbit orbit-one" /><div className="stage-orbit orbit-two" />
               <span className="stage-spark spark-one" /><span className="stage-spark spark-two" />
-              <button className="stage-pet-button" aria-label={`摸摸${animal.name}`} onClick={() => setPetting(count => count + 1)}><span className="scaled-pet-preview" style={{ transform: `scale(${settings.size / 320})`, opacity: settings.opacity }}><PetCanvas animal={draft.animal} dance={draft.dance} mode={settings.mode} reducedMotion={settings.reducedMotion} autoPlay={autoPlay} inputCount={inputCount} petting={petting} sensitivity={settings.sensitivity} easterEggs={settings.easterEggs} speechEnabled={settings.speechEnabled} onSpeech={setSpeech} className="stage-pet-canvas" /></span></button>
+              <button className="stage-pet-button" aria-label={`摸摸${animal.name}`} onClick={() => setPetting(count => count + 1)}><span className="scaled-pet-preview" style={{ transform: `scale(${settings.size / 320})`, opacity: settings.opacity }}><PetCanvas animal={draft.animal} dance={draft.dance} mode={settings.mode} reducedMotion={settings.reducedMotion} autoPlay={autoPlay} inputCount={inputCount} petting={petting} whipCount={whipCount} hardWhipCount={hardWhipCount} sensitivity={settings.sensitivity} easterEggs={settings.easterEggs} speechEnabled={settings.speechEnabled} onSpeech={setSpeech} className="stage-pet-canvas" /></span></button>
               {speech && <span className="speech-bubble" role="status" aria-live="polite">{speech}</span>}
               <span className="stage-caption">{autoPlay ? '完整舞蹈自动播放中' : hasTried ? '你的节奏，我有听见' : '点击下方试打，和我一起跳'}</span>
             </div>
             <div className="preview-info"><h2>{animal.name}<span>·</span>{dance.name}</h2></div>
+            {['fox', 'emojiFox', 'shyFox', 'orangeFox'].includes(draft.animal) && <div className="preview-whip-actions" role="group" aria-label="小鞭子互动"><button className="preview-whip-button" onClick={() => setWhipCount(count => count + 1)}>轻轻抽</button><button className="preview-whip-button strong" onClick={() => setHardWhipCount(count => count + 1)}>狠狠抽</button></div>}
             <button ref={tryRef} className={`try-pad${previewListening && !autoPlay ? ' engaged' : ''}`} onClick={event => { event.currentTarget.focus({ preventScroll: true }); enterTrial(); }} aria-label={native ? '开启当前窗口试打，让预览和桌面小舞伴回应' : '开启当前窗口试打，让上方预览跳舞'}>
               <span className="try-heading"><span className="try-keys"><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><strong>{autoPlay ? '点击停止自动播放，开始试打' : previewListening ? '已就绪，在当前窗口随意敲键' : '点击这里，再敲键'}</strong></span>
               <span className="try-feedback" role="status"><span className={previewListening ? 'status-dot live' : 'status-dot'} />本次收到 {inputCount} 次互动</span>

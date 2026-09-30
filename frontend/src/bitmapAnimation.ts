@@ -1,5 +1,6 @@
 import { CLIP_DURATION_MS, type BehaviorClip } from './engine';
 import type { Animal, Dance } from './petRenderer';
+import { HARD_WHIP_CONTACTS, isWhipClip, whipStrike, WHIP_CONTACT_PROGRESS } from './whipAnimation';
 
 const TAU = Math.PI * 2;
 const GROOVE_FRAMES = 24;
@@ -31,6 +32,8 @@ const ACTION_SEQUENCES: Readonly<Record<BehaviorClip, readonly number[]>> = {
   sleep: [14],
   pet: [0, 1, 9, 1, 15],
   greet: [0, 13, 7, 13, 15],
+  whip: [0],
+  'whip-hard': [0],
 };
 
 const QUIET_SEQUENCES: Readonly<Record<BehaviorClip, readonly number[]>> = {
@@ -42,6 +45,8 @@ const QUIET_SEQUENCES: Readonly<Record<BehaviorClip, readonly number[]>> = {
   sleep: [14],
   pet: [1],
   greet: [0],
+  whip: [0],
+  'whip-hard': [0],
 };
 
 function progressFor(options: BitmapFrameOptions): number {
@@ -69,6 +74,20 @@ function settleFrame(from: BitmapFrame, progress: number): BitmapFrame {
 /** Select one registered bitmap cell; no full-character frame blending occurs. */
 export function selectBitmapFrame(options: BitmapFrameOptions): BitmapFrame {
   const progress = progressFor(options);
+  if (options.clip === 'whip-hard') {
+    const contact = whipStrike(progress, true).contact;
+    const after = progress - contact;
+    const frame = progress < HARD_WHIP_CONTACTS[0] || progress >= 0.93 ? 0
+      : after >= 0 && after < 0.04 ? 2
+        : progress < 0.82 ? options.animal === 'orangeFox' ? 4 : 7 : 1;
+    return { atlas: 'actions', frame: options.reducedMotion ? progress >= HARD_WHIP_CONTACTS[0] && progress < 0.93 ? 1 : 0 : frame };
+  }
+  if (isWhipClip(options.clip)) {
+    const frame = progress < WHIP_CONTACT_PROGRESS || progress >= 0.84 ? 0
+      : progress < 0.51 ? 2
+        : progress < 0.67 ? options.animal === 'orangeFox' ? 4 : 7 : 1;
+    return { atlas: 'actions', frame: options.reducedMotion ? progress >= WHIP_CONTACT_PROGRESS && progress < 0.84 ? 1 : 0 : frame };
+  }
   if (options.animal === 'orangeFox' && options.clip === 'pet') {
     return {
       atlas: 'wink',

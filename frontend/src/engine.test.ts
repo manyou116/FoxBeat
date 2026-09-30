@@ -164,6 +164,17 @@ describe('anonymous input animation clock', () => {
     expect(e.sample(2_300).clip).toBe('idle');
   });
 
+  it('plays the toy whip reaction once, restarts on repeat, and returns to idle', () => {
+    const e = new DanceEngine();
+    e.event({ type: 'whip', now: 0 });
+    expect(e.sample(0)).toMatchObject({ clip: 'whip', clipProgress: 0 });
+    expect(sampleEvery(e, 0, 750, 50).clipProgress).toBeCloseTo(0.5);
+    e.event({ type: 'whip', now: 750 });
+    expect(e.sample(750)).toMatchObject({ clip: 'whip', clipProgress: 0 });
+    expect(sampleEvery(e, 750, 2_200, 50).clip).toBe('whip');
+    expect(e.sample(2_250).clip).toBe('idle');
+  });
+
   it('starts a new neutral dance phrase after a pet reaction', () => {
     const e = new DanceEngine();
     e.pulse(1, 0);
@@ -173,6 +184,32 @@ describe('anonymous input animation clock', () => {
     e.sample(1_000);
     e.pulse(1, 1_100);
     expect(e.sample(2_200)).toMatchObject({ clip: 'groove', clipProgress: 0 });
+  });
+
+  it('finishes all strong strikes in continuous, step, and autoplay modes', () => {
+    for (const mode of ['continuous', 'step'] as const) {
+      for (const autoplay of [false, true]) {
+        const e = new DanceEngine();
+        e.configure(mode);
+        e.event({ type: 'whip', strength: 'strong', now: 0 });
+        expect(e.sample(0, autoplay)).toMatchObject({ clip: 'whip-hard', clipProgress: 0 });
+        expect(sampleEvery(e, 0, 1_900, 20, autoplay)).toMatchObject({ clip: 'whip-hard' });
+        expect(sampleEvery(e, 1_900, 2_299, 20, autoplay).clipProgress).toBeGreaterThan(0.99);
+        expect(e.sample(2_300, autoplay).clip).toBe(autoplay ? 'groove' : 'idle');
+      }
+    }
+  });
+
+  it('switches between gentle and strong whip reactions without sharing their playheads', () => {
+    const e = new DanceEngine();
+    e.whip(0);
+    e.sample(0);
+    sampleEvery(e, 0, 750);
+    e.whip(750, 'strong');
+    expect(e.sample(750)).toMatchObject({ clip: 'whip-hard', clipProgress: 0 });
+    sampleEvery(e, 750, 1_750);
+    e.whip(1_750);
+    expect(e.sample(1_750)).toMatchObject({ clip: 'whip', clipProgress: 0 });
   });
 
   it('emits one semantic speech trigger for interaction events', () => {

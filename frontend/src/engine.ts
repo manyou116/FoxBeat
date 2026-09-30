@@ -1,3 +1,5 @@
+import { isWhipClip } from './whipAnimation';
+
 export type Mode = 'continuous' | 'step';
 export type MotionState = 'idle' | 'dancing' | 'settling' | 'sleeping';
 
@@ -10,7 +12,9 @@ export type BehaviorClip =
   | 'recover'
   | 'sleep'
   | 'pet'
-  | 'greet';
+  | 'greet'
+  | 'whip'
+  | 'whip-hard';
 
 export type ActivitySource = 'keyboard' | 'mouse' | 'scroll' | 'preview' | 'unknown';
 
@@ -43,6 +47,7 @@ export type BehaviorEvent =
   | { type: 'pulse'; count?: number; now: number; source?: ActivitySource }
   | { type: 'pet'; now: number }
   | { type: 'click'; now: number }
+  | { type: 'whip'; now: number; strength?: 'gentle' | 'strong' }
   | { type: 'idle'; now: number };
 
 const TAU = Math.PI * 2;
@@ -53,6 +58,8 @@ const RECOVER_END = 3_800;
 const ANTICIPATION_MS = 240;
 const PET_MS = 1_200;
 const GREET_MS = 850;
+const WHIP_MS = 1_500;
+const HARD_WHIP_MS = 2_300;
 const SPEECH_COOLDOWN = 18_000;
 // At 36 frames per groove cycle, 64ms cannot skip over a source pose on resume.
 const MAX_VISUAL_DELTA_MS = 64;
@@ -70,6 +77,8 @@ export const CLIP_DURATION_MS: Readonly<Record<BehaviorClip, number>> = {
   sleep: 3_200,
   pet: PET_MS,
   greet: GREET_MS,
+  whip: WHIP_MS,
+  'whip-hard': HARD_WHIP_MS,
 };
 
 const bounded = (value: number, min: number, max: number): number =>
@@ -127,6 +136,7 @@ export class BehaviorController {
       case 'pulse': this.pulse(event.count ?? 1, event.now, event.source); break;
       case 'pet': this.pet(event.now); break;
       case 'click': this.click(event.now); break;
+      case 'whip': this.whip(event.now, event.strength); break;
       case 'idle': this.idle(event.now); break;
     }
   }
@@ -169,6 +179,13 @@ export class BehaviorController {
     this.maybeSpeak('click', now);
   }
 
+  whip(now: number, strength: 'gentle' | 'strong' = 'gentle'): void {
+    if (!Number.isFinite(now)) return;
+    this.created ??= now;
+    this.lastActivity = now;
+    this.transition(strength === 'strong' ? 'whip-hard' : 'whip', now, true);
+  }
+
   /** Mark an explicit quiet period; the normal clock still controls sleep. */
   idle(now: number): void {
     if (!Number.isFinite(now)) return;
@@ -195,7 +212,8 @@ export class BehaviorController {
     this.lastTime = now;
 
     const reactionDuration = this.behavior === 'pet' ? PET_MS
-      : this.behavior === 'greet' ? GREET_MS : 0;
+      : this.behavior === 'greet' ? GREET_MS
+        : isWhipClip(this.behavior) ? CLIP_DURATION_MS[this.behavior] : 0;
     if (autoplay && (!reactionDuration || now - this.behaviorAt >= reactionDuration)) {
       this.transition('groove', now);
       this.phase = (this.phase + dt * GROOVE_PHASE_RATE * 0.94) % TAU;
@@ -217,10 +235,13 @@ export class BehaviorController {
     if (this.behavior === 'greet' && sinceBehavior >= GREET_MS) {
       this.transition(now - this.lastPulse < GROOVE_AFTER ? 'groove' : 'idle', now);
     }
+    if (isWhipClip(this.behavior) && sinceBehavior >= reactionDuration) {
+      this.transition(now - this.lastPulse < GROOVE_AFTER ? 'groove' : 'idle', now);
+    }
 
     // The normal continuous mode keeps the current groove alive while input
     // arrives, then gives the current phrase a settle and recovery tail.
-    if (this.mode === 'step') {
+    if (this.mode === 'step' && !(reactionDuration && sinceBehavior < reactionDuration)) {
       // Preserve the original two-second step timeout while exposing a short
       // recovery clip immediately before it returns to the idle pose.
       if (age >= 1_800 && age < 2_000 && this.behavior !== 'recover' && this.behavior !== 'idle' && this.behavior !== 'sleep') {
@@ -249,7 +270,7 @@ export class BehaviorController {
     }
 
     const state = this.behavior;
-    const active = state === 'anticipation' || state === 'groove' || state === 'pet' || state === 'greet';
+    const active = state === 'anticipation' || state === 'groove' || state === 'pet' || state === 'greet' || isWhipClip(state);
     const settling = state === 'settle' || state === 'recover';
     if (active || settling) {
       const speed = state === 'anticipation' ? 0.72 : state === 'recover' ? 0.52 : 0.86 + this.energy * 0.28;

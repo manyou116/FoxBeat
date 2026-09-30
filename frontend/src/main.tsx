@@ -17,6 +17,8 @@ function Pet() {
   const [count,setCount]=useState(0);
   const [directClicks,setDirectClicks]=useState(0);
   const [petting,setPetting]=useState(0);
+  const [whipCount,setWhipCount]=useState(0);
+  const [hardWhipCount,setHardWhipCount]=useState(0);
   const [speech,setSpeech]=useState('');
   const [error,setError]=useState('');
   const gesture=useRef(new PetGesture());
@@ -74,8 +76,9 @@ function Pet() {
             .catch(err=>setError(String(err))).finally(()=>{moving.current=false;});
         }
       }}
-      onPointerUp={()=>gesture.current.end()} onPointerCancel={()=>gesture.current.cancel()} onClick={interact}>
-      <PetCanvas {...state.settings} autoPlay={false} inputCount={count+directClicks*4} petting={petting} paused={state.paused||state.hidden} speechEnabled={state.settings.speechEnabled} onSpeech={setSpeech} runInBackground/>
+      onPointerUp={()=>gesture.current.end()} onPointerCancel={()=>gesture.current.cancel()} onClick={interact}
+      onContextMenu={e=>{e.preventDefault();if(!state.paused&&!state.hidden&&['fox','emojiFox','shyFox','orangeFox'].includes(state.settings.animal)){if(e.shiftKey)setHardWhipCount(v=>v+1);else setWhipCount(v=>v+1);}}}>
+      <PetCanvas {...state.settings} autoPlay={false} inputCount={count+directClicks*4} petting={petting} whipCount={whipCount} hardWhipCount={hardWhipCount} paused={state.paused||state.hidden} speechEnabled={state.settings.speechEnabled} onSpeech={setSpeech} runInBackground/>
     </button>
     {speech&&<div className="pet-speech" role="status" aria-live="polite">{speech}</div>}
     {error&&<div className="pet-error" role="alert">{error}<button onClick={()=>setError('')}>关闭</button></div>}

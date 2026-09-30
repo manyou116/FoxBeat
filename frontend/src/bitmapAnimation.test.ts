@@ -39,4 +39,25 @@ describe('bitmap companion frame selection', () => {
     expect(selectBitmapFrame({ ...wink, clipProgress: 0.5, reducedMotion: true })).toEqual({ atlas: 'wink', frame: 6 });
     expect(selectBitmapFrame({ ...base, animal: 'shyFox', clip: 'pet', clipProgress: 0.5 })).toEqual({ atlas: 'actions', frame: 9 });
   });
+
+  it('uses the fox recoil poses and returns to neutral after the whip', () => {
+    const reaction = { ...base, animal: 'shyFox' as const, clip: 'whip' as const };
+    expect(selectBitmapFrame({ ...reaction, clipProgress: 0 })).toEqual({ atlas: 'actions', frame: 0 });
+    expect(selectBitmapFrame({ ...reaction, clipProgress: 0.4 })).toEqual({ atlas: 'actions', frame: 0 });
+    expect(selectBitmapFrame({ ...reaction, clipProgress: 0.43 })).toEqual({ atlas: 'actions', frame: 2 });
+    expect(selectBitmapFrame({ ...reaction, clipProgress: 0.55 })).toEqual({ atlas: 'actions', frame: 7 });
+    expect(selectBitmapFrame({ ...reaction, animal: 'orangeFox', clipProgress: 0.55 })).toEqual({ atlas: 'actions', frame: 4 });
+    expect(selectBitmapFrame({ ...reaction, clipProgress: 1 })).toEqual({ atlas: 'actions', frame: 0 });
+  });
+
+  it('synchronizes the strong reaction expressions with each of its three contacts', () => {
+    const reaction = { ...base, animal: 'orangeFox' as const, clip: 'whip-hard' as const };
+    expect(selectBitmapFrame({ ...reaction, clipProgress: 0.29 }).frame).toBe(0);
+    for (const contact of [0.3, 0.49, 0.68]) {
+      expect(selectBitmapFrame({ ...reaction, clipProgress: contact + 0.01 }).frame).toBe(2);
+      expect(selectBitmapFrame({ ...reaction, clipProgress: contact + 0.06 }).frame).toBe(4);
+      expect(selectBitmapFrame({ ...reaction, clipProgress: contact + 0.06, reducedMotion: true }).frame).toBe(1);
+    }
+    expect(selectBitmapFrame({ ...reaction, clipProgress: 1 }).frame).toBe(0);
+  });
 });

@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod input;
 mod settings;
+mod updater;
 
 use input::{InputConfig, InputService, InputStatus};
 use serde::Serialize;
@@ -493,6 +494,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             open_main(app)
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_autostart::Builder::new()
                 .args(["--autostart"])
@@ -512,7 +514,12 @@ fn main() {
             main_ready,
             quit_app,
             pet_diagnostics,
-            preview_pulse
+            preview_pulse,
+            updater::get_update_state,
+            updater::check_for_updates,
+            updater::dismiss_update,
+            updater::install_update,
+            updater::open_update_release
         ])
         .setup(|app| {
             let preview = std::env::args().any(|s| s == "--preview");
@@ -556,6 +563,8 @@ fn main() {
                 moved_position: Mutex::new(None),
             });
             install_tray(app.handle())?;
+            app.manage(updater::UpdateManager::new(app.package_info().version.to_string()));
+            updater::start_automatic_checks(app.handle().clone());
             if !preview {
                 let pet = WebviewWindowBuilder::new(
                     app,

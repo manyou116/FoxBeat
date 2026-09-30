@@ -18,6 +18,8 @@ export interface Settings {
   autostart: boolean;
   easterEggs: boolean;
   speechEnabled: boolean;
+  automaticUpdateChecks: boolean;
+  previewUpdates: boolean;
 }
 
 export interface InputStatus {
@@ -48,4 +50,6 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   easterEggs: true,
   speechEnabled: true,
+  automaticUpdateChecks: true,
+  previewUpdates: true,
 };

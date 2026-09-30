@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { invoke, isTauri, listen } from './bridge';
 import PetCanvas from './PetCanvas';
+import UpdatePanel from './UpdatePanel';
 import { isPreviewPulseKey } from './previewInput';
 import { DEFAULT_SETTINGS } from './types';
 import type { Animal, AppState, Dance, InputStatus, Settings } from './types';
@@ -263,7 +264,7 @@ export default function App() {
         altKey: event.altKey,
         altGraph: event.getModifierState('AltGraph'),
         isComposing: event.isComposing,
-        editable: Boolean(target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')),
+        editable: Boolean(target?.closest('dialog, input, textarea, select, [contenteditable]:not([contenteditable="false"])')),
         button: Boolean(target?.closest('button, [role="button"], a[href]')),
       })) return;
       event.preventDefault();
@@ -388,8 +389,9 @@ export default function App() {
           <div className="settings-divider" /><div className="input-status-detail"><span className={`status-dot${ready ? ' live' : ''}`} /><div><strong>{!native ? '当前为浏览器预览' : sourcesOff ? '所有输入来源已关闭' : manualOnly ? '当前为手动试玩模式' : ready ? '输入跟随已就绪' : starting ? '正在启动输入跟随' : '输入跟随尚未就绪'}</strong><p>{app.status.message || '可以先在主题中心手动试玩。'}</p></div></div>
           {native && !manualOnly && !sourcesOff && <div className="permission-inline-actions"><button className="text-button" disabled={commandDisabled || starting} onClick={() => void command('retry_input', { requestPermission: true })}>重新检查</button>{needsPermission && <button className="text-button" disabled={commandDisabled} onClick={() => void command('open_input_settings')}>系统权限设置</button>}</div>}
         </section></div>
-        <footer className="settings-footer"><Icon name="leaf" size={17} /><span>{native ? '没有账号，没有上传。主题和设置，都留在这台电脑上。' : '这是浏览器试玩。选择仅在本页生效，刷新后会恢复默认。'}</span></footer>
       </div>}
+      <UpdatePanel visible={page === 'settings'} automatic={settings.automaticUpdateChecks} previews={settings.previewUpdates} disabled={controlsDisabled || saving} onAutomaticChange={value => updateSetting('automaticUpdateChecks', value)} onPreviewsChange={value => updateSetting('previewUpdates', value)} />
+      {page === 'settings' && <footer className="settings-footer"><Icon name="leaf" size={17} /><span>{native ? '没有账号，没有上传。主题和设置，都留在这台电脑上。' : '这是浏览器试玩。选择仅在本页生效，刷新后会恢复默认。'}</span></footer>}
     </main>
   </div>;
 }

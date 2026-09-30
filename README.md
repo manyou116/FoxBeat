@@ -32,6 +32,7 @@
 - 按首次输入、连续输入、停顿、长时间空闲、摸头、切换主题和启动等匿名事件触发不同小动作；短对白有冷却时间，只使用事件类型，不读取或保存实际输入文字。
 - 键盘默认启用；鼠标点击与滚轮默认关闭，分别可选。开机启动由用户主动开启。
 - 无账号，内置内容离线可用。对白是本地固定短句，不包含在线主题商城、AI 对话、音乐监听或云同步。
+- 发布版启动 15 秒后自动检查 GitHub Releases，此后每 6 小时检查一次；新版本弹窗展示更新说明，确认后下载、校验签名、安装并重启。偏好设置中可手动检查、关闭自动检查或切换是否接收开发预览版。
 
 ## 技术栈与支持目标
 
@@ -144,6 +145,7 @@ frontend/src/
 src-tauri/src/
   input.rs             macOS / Windows 监听、过滤、限速与生命周期
   settings.rs          设置验证和原子保存
+  updater.rs           GitHub 版本发现、签名更新与下载进度
   main.rs              IPC、窗口、托盘、自启与应用生命周期
 src-tauri/tauri.conf.json
 .github/workflows/build.yml
@@ -167,6 +169,7 @@ flowchart LR
 
 ```sh
 npm test
+npm run test:release
 npm run build
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
@@ -185,7 +188,17 @@ npm run bundle -- --bundles nsis
 
 更新已安装的 macOS 客户端时，先执行 `npm run bundle -- --bundles app`，在菜单中选择“退出狐伴”，然后用 `src-tauri/target/release/bundle/macos/FoxBeat.app` 替换 `/Applications/FoxBeat.app` 并重新启动。Tauri 发布版把前端资源嵌入可执行文件；仅执行 `npm run build` 会更新 `dist/`，已安装的客户端仍会运行旧代码。
 
-已提供三平台 GitHub Actions 配置：`windows-2022` 构建 x64 NSIS，`macos-15` 构建 Apple Silicon 应用与 DMG，`macos-15-intel` 构建 Intel 应用与 DMG。macOS 应用以 `.app.tar.gz` 上传，保留可执行权限与符号链接。推送 `v<版本号>` 标签（例如 `v0.1.0`，需与 `package.json`、`src-tauri/tauri.conf.json` 的版本一致）后，三平台构建全部通过才会自动创建 GitHub Release，上传带平台名称的安装包、应用归档和 `SHA256SUMS`。普通分支推送和 PR 只运行构建，不发布 Release。当前未配置签名凭据，自动发布的产物标记为开发预览版；正式发行前仍需 Windows 签名及 macOS 签名、公证。
+已提供三平台 GitHub Actions 配置：`windows-2022` 构建 x64 NSIS，`macos-15` 构建 Apple Silicon 应用与 DMG，`macos-15-intel` 构建 Intel 应用与 DMG。macOS 应用以 `.app.tar.gz` 上传，保留可执行权限与符号链接。推送 `v<版本号>` 标签（需与 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 的版本一致）后，三平台构建全部通过才会自动创建 GitHub Release，上传带平台名称的安装包、应用归档、`.sig` 签名、OTA 清单 `latest.json` 和 `SHA256SUMS`。普通分支推送和 PR 只运行构建，不发布 Release。OTA 签名用于校验更新来源和版本，Windows 系统代码签名及 macOS 签名、公证仍需另外配置。
+
+## 在线更新
+
+更新默认自动检查、手动确认安装，不会在工作中静默替换程序。选择“稍后提醒”后，本次运行不再提示同一版本；手动检查仍可重新打开提示。下载或校验失败不会开始安装，可以重试或打开发布页手动下载安装包。安装前保存桌面宠物位置，更新保留用户配置。
+
+检查只读取公开 GitHub Releases，不发送输入事件、主题或配置。主题、舞伴和对白仍可离线使用；关闭“自动检查更新”后不再后台联网。开发构建及 `--preview` 模式不自动检查，也不允许安装更新。
+
+目前仓库发布的是开发预览版，所以“接收开发预览版”默认开启。关闭后只检查正式版。没有 `latest.json` 的旧发布仅提供手动下载安装入口。
+
+**v0.1.1 及更早的客户端没有更新器，需要手动安装首个包含 OTA 的版本一次。** 从该版本起，后续带签名的发布才可在应用内升级。发布配置和签名密钥维护见 [OTA 发布说明](docs/ota-updates.md)。
 
 此前 5 位舞伴的渲染检查覆盖 2,880 个样本，未发现画布裁切；新增角色仍需补充同等规模的渲染回归检查。[新增舞伴动作预览](companions-preview.png) 展示待机、踏步、挥手与摸头。
 

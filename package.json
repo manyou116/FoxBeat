@@ -1,18 +1,20 @@
 {
   "name": "foxbeat",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts",
     "build": "tsc --noEmit && vite build --config vite.config.ts",
     "test": "vitest run",
+    "test:release": "node --test scripts/prepare-release.test.mjs",
     "tauri": "tauri",
     "desktop": "tauri dev",
     "bundle": "tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.0",
+    "lucide-react": "1.49.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

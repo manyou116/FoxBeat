@@ -18,6 +18,8 @@ pub struct Settings {
     pub autostart: bool,
     pub easter_eggs: bool,
     pub speech_enabled: bool,
+    pub automatic_update_checks: bool,
+    pub preview_updates: bool,
 }
 
 impl Default for Settings {
@@ -37,6 +39,8 @@ impl Default for Settings {
             autostart: false,
             easter_eggs: true,
             speech_enabled: true,
+            automatic_update_checks: true,
+            preview_updates: true,
         }
     }
 }
@@ -182,6 +186,8 @@ mod tests {
         assert_eq!(s.size, 180.0);
         assert!(s.keyboard);
         assert!(s.speech_enabled);
+        assert!(s.automatic_update_checks);
+        assert!(s.preview_updates);
     }
     #[test]
     fn preserves_negative_monitor_coordinates_and_replaces_settings() {

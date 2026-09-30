@@ -1,0 +1,1 @@
+FoxBeat updater signature verification fixture.

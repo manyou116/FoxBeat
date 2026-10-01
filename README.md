@@ -52,7 +52,7 @@ Windows 使用 WebView2；NSIS 配置包含离线安装器，未安装运行时�
 
 桌面宠物使用独立的后台绘制调度：透明窗口即使被 WebKit 标记为 `document.hidden`，收到节奏后也会请求绘制；主题中心预览仍遵守普通页面可见性。macOS 14+ 额外配置关闭 WebView 后台限速。macOS 13 不支持这一系统选项，仍需单独验证后台计时、绘制流畅度和耗电，不能从新系统的结果推定。
 
-macOS 透明 WebView 启用了 `macOSPrivateApi: true`。本版选择官网／独立安装包分发，**不支持提交 Mac App Store**。独立分发仍需要相应的 Developer ID 签名和公证；这些工作尚未完成。Windows 安装包签名也需在正式发布前另行配置。
+macOS 透明 WebView 启用了 `macOSPrivateApi: true`。本版选择官网／独立安装包分发，**不支持提交 Mac App Store**。macOS 使用完整 ad-hoc 签名封印应用资源，不需要 Apple 开发者账号；它不等于 Developer ID 签名或 Apple 公证，首次浏览器下载安装仍可能被系统拦截。Windows 安装包签名也需在正式发布前另行配置。
 
 ## 本地运行
 
@@ -188,7 +188,7 @@ npm run bundle -- --bundles nsis
 
 更新已安装的 macOS 客户端时，先执行 `npm run bundle -- --bundles app`，在菜单中选择“退出狐伴”，然后用 `src-tauri/target/release/bundle/macos/FoxBeat.app` 替换 `/Applications/FoxBeat.app` 并重新启动。Tauri 发布版把前端资源嵌入可执行文件；仅执行 `npm run build` 会更新 `dist/`，已安装的客户端仍会运行旧代码。
 
-已提供三平台 GitHub Actions 配置：`windows-2022` 构建 x64 NSIS，`macos-15` 构建 Apple Silicon 应用与 DMG，`macos-15-intel` 构建 Intel 应用与 DMG。macOS 应用以 `.app.tar.gz` 上传，保留可执行权限与符号链接。推送 `v<版本号>` 标签（需与 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 的版本一致）后，三平台构建全部通过才会自动创建 GitHub Release，上传带平台名称的安装包、应用归档、`.sig` 签名、OTA 清单 `latest.json` 和 `SHA256SUMS`。普通分支推送和 PR 只运行构建，不发布 Release。OTA 签名用于校验更新来源和版本，Windows 系统代码签名及 macOS 签名、公证仍需另外配置。
+已提供三平台 GitHub Actions 配置：`windows-2022` 构建 x64 NSIS，`macos-15` 构建 Apple Silicon 应用与 DMG，`macos-15-intel` 构建 Intel 应用与 DMG。macOS 应用以 `.app.tar.gz` 上传，保留可执行权限与符号链接；签名在生成 DMG 和 OTA 包之前完成，CI 校验应用、解压后的归档和只读挂载的 DMG 中的签名、版本与隔离属性。推送 `v<版本号>` 标签（需与 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 的版本一致）后，三平台构建全部通过才会自动创建 GitHub Release，上传带平台名称的安装包、应用归档、`.sig` 签名、OTA 清单 `latest.json` 和 `SHA256SUMS`。普通分支推送和 PR 只运行构建，不发布 Release。OTA 签名用于校验更新来源和版本，Windows 系统代码签名及 macOS Developer ID 签名、公证仍需另外配置。
 
 ## 在线更新
 

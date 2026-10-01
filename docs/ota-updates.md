@@ -16,7 +16,23 @@ gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo manyou116/FoxBeat
 
 将生成的 `.pub` 内容设置为 `src-tauri/tauri.conf.json` 中的 `plugins.updater.pubkey`。密码通过 GitHub CLI 的隐藏输入填写，勿写入命令参数、提交记录或日志。现有项目已配置公钥和对应的两个 GitHub 加密 Secrets，无需重新生成。必须继续使用对应的私钥签署后续版本；丢失或直接更换私钥，会导致已安装客户端拒绝新包。
 
-OTA 签名不是 Windows Authenticode 或 Apple Developer ID 签名。当前程序尚无这两类系统代码签名，macOS 尚未公证；首装仍可能出现系统安全提示。
+OTA 签名不是 Windows Authenticode 或 Apple Developer ID 签名。macOS 现在使用完整 ad-hoc 签名封印应用包，尚无 Developer ID 签名和 Apple 公证；首装仍可能出现系统安全提示。Windows 尚无系统代码签名。
+
+## macOS 无开发者账号分发
+
+`bundle.macOS.signingIdentity` 设置为 `-`。Tauri 在新生成的应用包上清理扩展属性并完成 ad-hoc 签名，之后才生成 DMG、OTA 归档和 OTA 内容签名。不要在生成 `.sig` 后重新签名或修改归档，这会使已发布的 OTA 签名失效。
+
+CI 使用 `npm run verify:macos -- <bundle目录> --require-updater --require-dmg` 检查完整应用包、解压后的 OTA 归档以及只读挂载的 DMG：资源签名必须有效，应用标识和版本必须匹配，应用及内部文件不能携带 `com.apple.quarantine`。任何一项失败都会停止上传和发布。本地仅打包 `.app` 时也可运行 `npm run verify:macos`；已有归档和 DMG 会一并检查。
+
+首次使用浏览器下载 DMG 会被 macOS 添加隔离标记。确认来自本仓库 Release 并校对 `SHA256SUMS` 后，可以在系统设置中允许打开。如果仍提示“已损坏”，先将应用放入 `/Applications`，验证完整签名；只有验证通过后，才对这一个可信应用移除隔离标记：
+
+```sh
+if codesign --verify --deep --strict --verbose=2 /Applications/FoxBeat.app; then
+  xattr -dr com.apple.quarantine /Applications/FoxBeat.app && open /Applications/FoxBeat.app
+fi
+```
+
+旧版 v0.1.2 发布包缺少完整资源签名，不能仅靠移除隔离标记修复签名，应换成修复后的安装包或通过 OTA 升级。后续尽量在应用内更新：官方 updater 在内存中下载并验签，再解压新包替换应用，不主动复制旧应用的隔离属性。无隔离属性且签名完整的 OTA 应用通常不会重复触发相同拦截；重新通过浏览器下载安装包仍可能再次触发。此方案不绕过全局 Gatekeeper，也不保证所有 macOS 版本或管理策略下均可免提示。输入监控等隐私权限另由系统管理，更新后仍应以实际授权状态为准。
 
 ## 发布新版本
 
@@ -32,5 +48,16 @@ OTA 签名不是 Windows Authenticode 或 Apple Developer ID 签名。当前程�
 ## 验证边界
 
 原生测试使用实际签名、临时本机 HTTP 服务和官方 updater，验证完整下载、进度统计、篡改拒绝及版本错配拒绝；仅测试服务允许 HTTP，生产配置要求 HTTPS。发布脚本测试覆盖 CI 归档结构、三平台清单与校验和。
+
+macOS 包检查测试使用系统 `codesign`、`xattr`、`tar` 和 `hdiutil`，覆盖完整 ad-hoc 签名、缺失资源封印、资源篡改、内部文件的隔离属性、版本与标识错配，以及归档中的应用和源应用不一致。
+
+标签构建还会运行官方 updater 的安装集成测试：在临时应用上设置隔离标记，下载并验签真实构建的 OTA 包，连续替换两次，确认每次安装后的资源封印、版本、标识有效且没有隔离属性。普通测试默认跳过这项需要构建产物的检查；本地可在打出带 `.sig` 的 OTA 包后执行：
+
+```sh
+FOXBEAT_MACOS_UPDATER_ARCHIVE="$PWD/src-tauri/target/release/bundle/macos/FoxBeat.app.tar.gz" \
+  cargo test --locked --manifest-path src-tauri/Cargo.toml --test macos_updater -- --ignored
+```
+
+该安装测试不启动 GUI，也不替代 Gatekeeper 首次打开或跨版本升级的实机验收。
 
 首次手动安装带 OTA 的发布后，再发布一个更高版本，分别在 Windows 和两种 macOS 架构上验证应用内安装、重启和配置保留，才能确认完整实机升级。v0.1.1 及更早的客户端不包含更新器，无法靠发布新附件自动获得该功能。

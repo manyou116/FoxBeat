@@ -100,8 +100,22 @@ jobs:
         run: |
           bundle='src-tauri/target/${{ matrix.target }}/release/bundle/macos'
           if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
-            tar -czf "$bundle/FoxBeat.app.tar.gz" -C "$bundle" FoxBeat.app
+            COPYFILE_DISABLE=1 tar -czf "$bundle/FoxBeat.app.tar.gz" -C "$bundle" FoxBeat.app
           fi
+
+      - name: Verify macOS application and packaged signatures
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          node scripts/verify-macos-package.mjs 'src-tauri/target/${{ matrix.target }}/release/bundle' \
+            --require-updater --require-dmg
+
+      - name: Test signed macOS OTA installation
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          FOXBEAT_MACOS_UPDATER_ARCHIVE: ${{ github.workspace }}/src-tauri/target/${{ matrix.target }}/release/bundle/macos/FoxBeat.app.tar.gz
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --target '${{ matrix.target }}' --test macos_updater -- --ignored
 
       - name: Upload Windows installer
         if: runner.os == 'Windows'
@@ -184,7 +198,7 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
               --title "FoxBeat $GITHUB_REF_NAME" \
               --generate-notes \
-              --notes '开发预览版。更新包带 OTA 签名；Windows 和 macOS 程序尚无系统代码签名，macOS 尚未公证。'
+              --notes '开发预览版。更新包带 OTA 签名；macOS 应用带完整 ad-hoc 签名，但尚无 Developer ID 签名及 Apple 公证，首次安装仍可能被系统拦截。Windows 程序尚无系统代码签名。'
           fi
           gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
           gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease

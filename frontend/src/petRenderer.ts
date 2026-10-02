@@ -12,12 +12,31 @@ import orangeFoxSwayUrl from '../assets/orange-fox-sway-v3.png';
 import orangeFoxStepUrl from '../assets/orange-fox-step-v3.png';
 import orangeFoxWaveUrl from '../assets/orange-fox-wave-v3.png';
 import orangeFoxWinkUrl from '../assets/orange-fox-wink-v1.png';
+import dancingFoxIdleUrl from '../assets/dancing-fox/idle.png';
+import dancingFoxFrame001Url from '../assets/dancing-fox/frame_001.png';
+import dancingFoxFrame002Url from '../assets/dancing-fox/frame_002.png';
+import dancingFoxFrame003Url from '../assets/dancing-fox/frame_003.png';
+import dancingFoxFrame004Url from '../assets/dancing-fox/frame_004.png';
+import dancingFoxFrame005Url from '../assets/dancing-fox/frame_005.png';
+import dancingFoxFrame006Url from '../assets/dancing-fox/frame_006.png';
+import dancingFoxFrame007Url from '../assets/dancing-fox/frame_007.png';
+import dancingFoxFrame008Url from '../assets/dancing-fox/frame_008.png';
+import dancingFoxFrame009Url from '../assets/dancing-fox/frame_009.png';
+import dancingFoxFrame010Url from '../assets/dancing-fox/frame_010.png';
+import dancingFoxFrame011Url from '../assets/dancing-fox/frame_011.png';
+import dancingFoxFrame012Url from '../assets/dancing-fox/frame_012.png';
+import dancingFoxFrame013Url from '../assets/dancing-fox/frame_013.png';
+import dancingFoxFrame014Url from '../assets/dancing-fox/frame_014.png';
+import dancingFoxFrame015Url from '../assets/dancing-fox/frame_015.png';
+import dancingFoxFrame016Url from '../assets/dancing-fox/frame_016.png';
+import dancingFoxFrame017Url from '../assets/dancing-fox/frame_017.png';
+import dancingFoxFrame018Url from '../assets/dancing-fox/frame_018.png';
 import type { BehaviorClip } from './engine';
 import { selectBitmapFrame, type BitmapAtlas, type BitmapFrame } from './bitmapAnimation';
 import { isWhipClip, smoothStep, whipRecoil, whipStrike } from './whipAnimation';
 
-export type Animal = 'fox' | 'emojiFox' | 'girl' | 'cat' | 'capybara' | 'shyFox' | 'yuexinCat' | 'orangeFox';
-export type Dance = 'sway' | 'step' | 'wave';
+export type Animal = 'fox' | 'emojiFox' | 'girl' | 'cat' | 'capybara' | 'shyFox' | 'yuexinCat' | 'orangeFox' | 'dancingFox';
+export type Dance = 'sway' | 'step' | 'wave' | 'sanwei';
 
 export interface RenderOptions {
   animal: Animal;
@@ -31,6 +50,8 @@ export interface RenderOptions {
   /** Position in the current behavior, supplied by the controller. */
   clipProgress?: number;
   clipElapsedMs?: number;
+  /** Exact source frame used by the original discrete animation, -1 is idle. */
+  frameIndex?: number;
   reducedMotion?: boolean;
   /** A transient affection value from 0 to 1, controlled by the caller. */
   petting?: number;
@@ -100,6 +121,10 @@ const COLORS: Record<Animal, Palette> = {
     fur: '#F58B3B', light: '#FFF9F0', shade: '#D4662F',
     ink: '#43271F', pink: '#F28B83', paw: '#FFF9F0',
   },
+  dancingFox: {
+    fur: '#F58B3B', light: '#FFF9F0', shade: '#D4662F',
+    ink: '#43271F', pink: '#F28B83', paw: '#FFF9F0',
+  },
 };
 
 const TAU = Math.PI * 2;
@@ -118,6 +143,32 @@ interface BitmapPlayback {
   settleFrom?: BitmapFrame;
 }
 const bitmapPlayback = new WeakMap<CanvasRenderingContext2D, Partial<Record<BitmapAnimal, BitmapPlayback>>>();
+
+const DANCING_FOX_FRAMES = [
+  dancingFoxFrame001Url, dancingFoxFrame002Url, dancingFoxFrame003Url,
+  dancingFoxFrame004Url, dancingFoxFrame005Url, dancingFoxFrame006Url,
+  dancingFoxFrame007Url, dancingFoxFrame008Url, dancingFoxFrame009Url,
+  dancingFoxFrame010Url, dancingFoxFrame011Url, dancingFoxFrame012Url,
+  dancingFoxFrame013Url, dancingFoxFrame014Url, dancingFoxFrame015Url,
+  dancingFoxFrame016Url, dancingFoxFrame017Url, dancingFoxFrame018Url,
+] as const;
+const dancingFoxImages: Array<HTMLImageElement | undefined> = [];
+let dancingFoxIdleImage: HTMLImageElement | undefined;
+let dancingFoxPreloaded = false;
+
+function getDancingFoxImage(frameIndex: number): HTMLImageElement | undefined {
+  const url = frameIndex < 0 ? dancingFoxIdleUrl : DANCING_FOX_FRAMES[frameIndex % DANCING_FOX_FRAMES.length];
+  if (!url || typeof Image === 'undefined') return undefined;
+  const slot = frameIndex < 0 ? undefined : (frameIndex % DANCING_FOX_FRAMES.length);
+  const cached = slot === undefined ? dancingFoxIdleImage : dancingFoxImages[slot];
+  if (cached) return cached.complete && cached.naturalWidth > 0 ? cached : undefined;
+  const image = new Image();
+  image.decoding = 'async';
+  image.src = url;
+  if (slot === undefined) dancingFoxIdleImage = image;
+  else dancingFoxImages[slot] = image;
+  return undefined;
+}
 
 function getBitmapImage(animal: BitmapAnimal, atlas: BitmapAtlas): HTMLImageElement | undefined {
   const url = BITMAP_SHEETS[animal][atlas];
@@ -711,6 +762,22 @@ function drawBitmapCompanion(
     -width / 2 + 1, -194, width, width);
 }
 
+function drawDancingFox(ctx: CanvasRenderingContext2D, options: RenderOptions, pose: Pose, p: Palette): void {
+  if (!dancingFoxPreloaded && typeof Image !== 'undefined') {
+    getDancingFoxImage(-1);
+    DANCING_FOX_FRAMES.forEach((_, index) => getDancingFoxImage(index));
+    dancingFoxPreloaded = true;
+  }
+  const index = options.frameIndex ?? -1;
+  const image = getDancingFoxImage(index) ?? getDancingFoxImage(-1);
+  if (!image) return;
+  // Source drawings are 720x784. Keep their aspect ratio and put the paws on
+  // the same ground line as the other FoxBeat companions.
+  const width = 282;
+  const height = width * 784 / 720;
+  ctx.drawImage(image, -width / 2, -height + 20, width, height);
+}
+
 function drawToyWhip(
   ctx: CanvasRenderingContext2D, progress: number, reducedMotion: boolean,
   contact: { x: number; y: number }, hard = false,
@@ -1027,7 +1094,7 @@ export function renderPet(
   if (!(width > 0) || !(height > 0) || !Number.isFinite(width + height)) return;
   const animal = Object.prototype.hasOwnProperty.call(COLORS, options.animal) ? options.animal : 'fox';
   const p = COLORS[animal];
-  const pose = animal === 'shyFox' || animal === 'yuexinCat' || animal === 'orangeFox'
+  const pose = animal === 'shyFox' || animal === 'yuexinCat' || animal === 'orangeFox' || animal === 'dancingFox'
     ? getPose({ ...options, animal }) : getVectorPose({ ...options, animal });
   ctx.save();
   const scale = Math.min(width, height) / 320;
@@ -1042,6 +1109,7 @@ export function renderPet(
   ellipse(ctx, 160, 284, 36, 4, 'rgba(104, 83, 64, 0.045)');
   ctx.save();
   const isBitmap = animal === 'orangeFox' || animal === 'shyFox' || animal === 'yuexinCat';
+  const isDancingFox = animal === 'dancingFox';
   const progress = Number.isFinite(options.clipProgress) ? Math.max(0, Math.min(1, options.clipProgress!))
     : ((options.phase % TAU) + TAU) % TAU / TAU;
   const activeClip = isBitmap ? bitmapClip(options) : undefined;
@@ -1057,16 +1125,17 @@ export function renderPet(
   const bitmapY = stepping
     ? -Math.max(0, Math.sin(progress * TAU * 2)) * 4 * bitmapAmount
     : -Math.abs(bitmapSwing) * 1.2 * bitmapAmount;
-  const characterX = 151 + (isBitmap ? bitmapX : pose.x);
-  const characterY = 215 + (isBitmap ? bitmapY - (hardWhip ? 22 : 7) * whipReaction : pose.y);
-  const characterAngle = (isBitmap ? bitmapSwing * 1.5 * bitmapAmount - (hardWhip ? 11 : 5) * whipReaction : pose.body) * Math.PI / 180;
-  const characterStretch = isBitmap ? 1 + Math.sin(progress * TAU) * 0.002 * bitmapAmount - (hardWhip ? 0.09 * whipReaction : 0) : pose.breath;
+  const characterX = 151 + (isBitmap ? bitmapX : isDancingFox ? 9 : pose.x);
+  const characterY = 215 + (isBitmap ? bitmapY - (hardWhip ? 22 : 7) * whipReaction : isDancingFox ? 48 : pose.y);
+  const characterAngle = (isBitmap ? bitmapSwing * 1.5 * bitmapAmount - (hardWhip ? 11 : 5) * whipReaction : isDancingFox ? 0 : pose.body) * Math.PI / 180;
+  const characterStretch = isBitmap ? 1 + Math.sin(progress * TAU) * 0.002 * bitmapAmount - (hardWhip ? 0.09 * whipReaction : 0) : isDancingFox ? 1 : pose.breath;
   const characterWidth = isBitmap && hardWhip ? 1 + 0.045 * whipReaction : 1;
   ctx.translate(characterX, characterY);
   ctx.rotate(characterAngle);
   ctx.scale(characterWidth, characterStretch);
   if (animal === 'girl') drawGirl(ctx, pose, p);
   else if (animal === 'emojiFox') drawEmojiFox(ctx, pose, p);
+  else if (isDancingFox) drawDancingFox(ctx, options, pose, p);
   else if (isBitmap) drawBitmapCompanion(ctx, animal, pose, p, options);
   else {
     drawTail(ctx, animal, pose, p);
@@ -1092,6 +1161,6 @@ export function renderPet(
   }
 
   if (pose.sleeping) drawSleepBubble(ctx, Number.isFinite(options.phase) ? options.phase : 0, !!options.reducedMotion);
-  if (animal !== 'orangeFox') drawAffection(ctx, pose.affection, !!options.reducedMotion);
+  if (animal !== 'orangeFox' && !isDancingFox) drawAffection(ctx, pose.affection, !!options.reducedMotion);
   ctx.restore();
 }

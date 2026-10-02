@@ -8,6 +8,7 @@ export interface PetCanvasProps {
   animal: Animal; dance: Dance; mode: Mode; reducedMotion?: boolean;
   autoPlay?: boolean; inputCount?: number; petting?: number; whipCount?: number; hardWhipCount?: number; className?: string;
   sensitivity?: number; paused?: boolean; easterEggs?: boolean;
+  dragging?: boolean;
   speechEnabled?: boolean; onSpeech?: (text: string) => void;
   /** Desktop pets can remain visible even when the WebView reports hidden. */
   runInBackground?: boolean;
@@ -42,7 +43,7 @@ export default function PetCanvas(props: PetCanvasProps) {
   useEffect(() => {
     const now = performance.now();
     engine.current.reset();
-    engine.current.event({ type: 'click', now });
+    if (props.animal !== 'dancingFox') engine.current.event({ type: 'click', now });
     speech.current.reset();
     showSpeech('launch', now);
     return () => { if (speechTimer.current !== undefined) window.clearTimeout(speechTimer.current); };
@@ -56,19 +57,26 @@ export default function PetCanvas(props: PetCanvasProps) {
     engine.current.reset();
     requestPaint.current();
   }, [props.autoPlay]);
-  useEffect(() => { engine.current.configure(props.mode, props.sensitivity); }, [props.mode, props.sensitivity]);
+  useEffect(() => {
+    engine.current.configure(props.mode, props.sensitivity,
+      props.animal === 'dancingFox' && props.dance === 'sanwei' ? 'dancingFox' : 'standard');
+  }, [props.mode, props.sensitivity, props.animal, props.dance]);
+  useEffect(() => {
+    engine.current.setSuspended(Boolean(props.dragging), performance.now());
+    requestPaint.current();
+  }, [props.dragging, props.animal]);
   useEffect(() => {
     const value = props.inputCount ?? 0;
     const diff = value - previousCount.current;
     const wasFirst = previousCount.current === 0;
     previousCount.current = value;
-    if (diff > 0 && !props.paused) {
+    if (diff > 0 && !props.paused && !props.dragging) {
       const now = performance.now();
       engine.current.event({ type: 'pulse', count: diff, now, source: 'preview' });
       showSpeech(diff >= 3 ? 'burst' : wasFirst ? 'first-input' : 'surprise', now);
       requestPaint.current();
     }
-  }, [props.inputCount, props.paused]);
+  }, [props.inputCount, props.paused, props.dragging]);
   useEffect(() => {
     if (props.paused) {
       showSpeech('pause', performance.now());
@@ -102,7 +110,7 @@ export default function PetCanvas(props: PetCanvasProps) {
     if (initialAnimal.current === props.animal) return;
     initialAnimal.current = props.animal;
     const now = performance.now();
-    engine.current.event({ type: 'click', now });
+    if (props.animal !== 'dancingFox') engine.current.event({ type: 'click', now });
     showSpeech('theme-change', now);
     requestPaint.current();
   }, [props.animal]);
@@ -142,6 +150,7 @@ export default function PetCanvas(props: PetCanvasProps) {
         motion.phase = 0;
       }
       el.dataset.clip = motion.clip;
+      el.dataset.sourceFrame = String(motion.frameIndex ?? -1);
       const petting = Math.max(0, (petUntil.current - now) / 1600);
       renderPet(context, rect.width, rect.height, {
         animal: p.animal, dance: p.dance, ...motion,
@@ -176,7 +185,7 @@ export default function PetCanvas(props: PetCanvasProps) {
 
   const label = {
     fox: '狐狸', emojiFox: '表情小狐狸', girl: '紫瞳女孩', cat: '猫咪', capybara: '水豚',
-    shyFox: '委屈小狐狸', yuexinCat: '月薪喵', orangeFox: '害羞橙狐',
+    shyFox: '委屈小狐狸', yuexinCat: '月薪喵', orangeFox: '害羞橙狐', dancingFox: '跳跳狐',
   }[props.animal];
   return <canvas ref={canvas} className={props.className ?? 'pet-canvas'} role="img" aria-label={`${label}舞蹈预览`} />;
 }

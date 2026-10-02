@@ -56,13 +56,20 @@ impl Settings {
             "shyFox",
             "yuexinCat",
             "orangeFox",
+            "dancingFox",
         ]
         .contains(&self.animal.as_str())
         {
             return Err("没有找到这位舞伴".into());
         }
-        if !["sway", "step", "wave"].contains(&self.dance.as_str()) {
+        if !["sway", "step", "wave", "sanwei"].contains(&self.dance.as_str()) {
             return Err("没有找到这套舞蹈".into());
+        }
+        if self.animal == "dancingFox" && self.dance != "sanwei" {
+            return Err("跳跳狐只能使用散味舞".into());
+        }
+        if self.dance == "sanwei" && self.animal != "dancingFox" {
+            return Err("散味舞只属于跳跳狐".into());
         }
         if !["continuous", "step"].contains(&self.mode.as_str()) {
             return Err("舞蹈模式不正确".into());
@@ -146,7 +153,7 @@ pub fn save(path: &Path, data: &Stored) -> Result<(), String> {
 mod tests {
     use super::*;
     #[test]
-    fn defaults_and_all_twenty_four_combinations_are_valid() {
+    fn defaults_and_supported_theme_combinations_are_valid() {
         for animal in [
             "fox",
             "emojiFox",
@@ -166,6 +173,12 @@ mod tests {
                 assert!(s.validate().is_ok());
             }
         }
+        let dancing = Settings { animal: "dancingFox".into(), dance: "sanwei".into(), ..Settings::default() };
+        assert!(dancing.validate().is_ok());
+        let invalid = Settings { animal: "dancingFox".into(), dance: "sway".into(), ..Settings::default() };
+        assert!(invalid.validate().is_err());
+        let invalid = Settings { animal: "fox".into(), dance: "sanwei".into(), ..Settings::default() };
+        assert!(invalid.validate().is_err());
     }
     #[test]
     fn prevents_invisible_or_unbounded_pets() {
@@ -198,11 +211,13 @@ mod tests {
             ..Stored::default()
         };
         save(&path, &stored).unwrap();
-        stored.settings.animal = "cat".into();
+        stored.settings.animal = "dancingFox".into();
+        stored.settings.dance = "sanwei".into();
         save(&path, &stored).unwrap();
         let read = load(&path).unwrap();
         assert_eq!(read.position.unwrap().x, -1280);
-        assert_eq!(read.settings.animal, "cat");
+        assert_eq!(read.settings.animal, "dancingFox");
+        assert_eq!(read.settings.dance, "sanwei");
         fs::write(&path, "{").unwrap();
         assert!(load(&path).is_err());
         let _ = fs::remove_dir_all(dir);

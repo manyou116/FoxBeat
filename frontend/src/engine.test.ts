@@ -139,6 +139,51 @@ describe('anonymous input animation clock', () => {
     expect(e.sample(1_001).clipProgress).toBeGreaterThan(first);
   });
 
+  it('advances the dancing fox exactly one of 18 frames per accepted input', () => {
+    const e = new DanceEngine();
+    e.configure('step', 1, 'dancingFox');
+    expect(e.sample(0)).toMatchObject({ state: 'idle', frameIndex: -1 });
+    e.pulse(1, 10);
+    expect(e.sample(10)).toMatchObject({ state: 'dancing', frameIndex: 0 });
+    expect(e.sample(1_000).frameIndex).toBe(0);
+    e.pulse(1, 1_001);
+    expect(e.sample(1_001).frameIndex).toBe(1);
+    e.pulse(16, 1_002);
+    expect(e.sample(1_002).frameIndex).toBe(17);
+    e.pulse(1, 1_003);
+    expect(e.sample(1_003).frameIndex).toBe(0);
+    expect(e.sample(3_100)).toMatchObject({ state: 'idle', frameIndex: -1 });
+  });
+
+  it('resets a stale dancing fox before input even without an intervening paint', () => {
+    const e = new DanceEngine(); e.configure('step', 1, 'dancingFox');
+    e.pulse(7, 0);
+    e.pulse(1, 2_000);
+    expect(e.sample(2_000).frameIndex).toBe(0);
+    e.pulse(256, 2_001);
+    expect(e.sample(2_001).frameIndex).toBe(4);
+    expect(e.sample(4_000, true)).toMatchObject({ frameIndex: 4, clip: 'groove' });
+    expect(e.sample(4_001)).toMatchObject({ frameIndex: -1, clip: 'idle' });
+  });
+
+  it('keeps the original pose independent of greeting, petting, autoplay and drag duration', () => {
+    const e = new DanceEngine(); e.configure('step', 1, 'dancingFox');
+    e.click(0); e.pet(0);
+    expect(e.sample(0, true)).toMatchObject({ frameIndex: -1, clip: 'idle' });
+    e.pulse(3, 10);
+    e.setSuspended(true, 500);
+    e.pulse(10, 600); e.click(1_000); e.pet(1_100);
+    expect(e.sample(5_000, true)).toMatchObject({ frameIndex: 2, clip: 'groove' });
+    e.setSuspended(false, 5_000);
+    expect(e.sample(6_509).frameIndex).toBe(2);
+    expect(e.sample(6_510).frameIndex).toBe(-1);
+    e.configure('continuous', 1, 'standard');
+    e.pulse(1, 7_000);
+    expect(e.sample(7_000).clip).toBe('anticipation');
+    e.configure('step', 1, 'dancingFox');
+    expect(e.sample(7_100).frameIndex).toBe(-1);
+  });
+
   it('finishes a greeting or pet without an unrelated late settle', () => {
     const e = new DanceEngine();
     e.click(0);

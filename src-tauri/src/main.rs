@@ -23,6 +23,7 @@ struct Core {
     paused: AtomicBool,
     hidden: AtomicBool,
     adjusting: AtomicBool,
+    exact_pet: AtomicBool,
     preview: bool,
     no_listener: bool,
     diagnostics: Mutex<Diagnostics>,
@@ -88,15 +89,18 @@ fn emit_pulse(app: &tauri::AppHandle, count: u32, native: bool) -> Result<(), St
 }
 
 #[tauri::command]
-fn preview_pulse(app: tauri::AppHandle, window: WebviewWindow, from_keyboard: bool) -> Result<(), String> {
+fn preview_pulse(app: tauri::AppHandle, window: WebviewWindow, from_keyboard: bool, from_mouse_click: Option<bool>, from_mouse_scroll: Option<bool>) -> Result<(), String> {
     control_only(&window)?;
     let core = app.state::<Core>();
     if core.paused.load(Ordering::Relaxed) || core.hidden.load(Ordering::Relaxed) || core.preview {
         return Ok(());
     }
     // A global keyboard listener already forwards this same key; avoid double steps.
-    if from_keyboard && core.input.status().state == "listening"
-        && core.stored.lock().unwrap().settings.keyboard {
+    let settings = core.stored.lock().unwrap().settings.clone();
+    if core.input.status().state == "listening"
+        && ((from_keyboard && settings.keyboard)
+            || (from_mouse_click.unwrap_or(false) && settings.mouse_click)
+            || (from_mouse_scroll.unwrap_or(false) && settings.mouse_scroll)) {
         return Ok(());
     }
     emit_pulse(&app, 1, false)
@@ -137,9 +141,27 @@ fn input_config(s: &Settings) -> InputConfig {
     }
 }
 fn publish(app: &tauri::AppHandle) -> Snapshot {
+    refresh_pet_click_bounds(app);
     let snapshot = app.state::<Core>().snapshot();
     let _ = app.emit("foxbeat://state", &snapshot);
     snapshot
+}
+fn refresh_pet_click_bounds(app: &tauri::AppHandle) {
+    let Some(core) = app.try_state::<Core>() else { return; };
+    // Move/resize events can fire while settings are being saved. Avoid taking
+    // the stored-settings lock again from the native window callback.
+    let exact = core.exact_pet.load(Ordering::Relaxed);
+    let bounds = app.get_webview_window("pet").and_then(|pet| {
+        if !exact || core.hidden.load(Ordering::Relaxed) || !pet.is_visible().unwrap_or(false) { return None; }
+        let position = pet.inner_position().ok()?;
+        let size = pet.inner_size().ok()?;
+        // CGEvent locations are logical screen points; Windows hooks use pixels.
+        let scale = if cfg!(target_os = "macos") { pet.scale_factor().ok()? } else { 1.0 };
+        Some([f64::from(position.x) / scale, f64::from(position.y) / scale,
+            (f64::from(position.x) + f64::from(size.width)) / scale,
+            (f64::from(position.y) + f64::from(size.height)) / scale])
+    });
+    core.input.set_pet_click_bounds(bounds);
 }
 fn open_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -218,6 +240,7 @@ fn save_settings(app: &tauri::AppHandle, value: Settings) -> Result<Snapshot, St
     }
     *stored = next;
     drop(stored);
+    core.exact_pet.store(value.animal == "dancingFox", Ordering::Relaxed);
     core.input.configure(input_config(&value));
     Ok(publish(app))
 }
@@ -415,6 +438,7 @@ fn pet_ready(app: tauri::AppHandle, window: WebviewWindow) -> Result<(), String>
     if !app.state::<Core>().hidden.load(Ordering::Relaxed) {
         window.show().map_err(|e| e.to_string())?;
     }
+    refresh_pet_click_bounds(&app);
     Ok(())
 }
 #[tauri::command]
@@ -550,6 +574,7 @@ fn main() {
             let config = input_config(&stored.settings);
             let size = stored.settings.size;
             let saved = stored.position.clone();
+            let exact_pet = stored.settings.animal == "dancingFox";
             app.manage(Core {
                 stored: Mutex::new(stored),
                 path,
@@ -557,6 +582,7 @@ fn main() {
                 paused: AtomicBool::new(false),
                 hidden: AtomicBool::new(false),
                 adjusting: AtomicBool::new(false),
+                exact_pet: AtomicBool::new(exact_pet),
                 preview,
                 no_listener,
                 diagnostics: Mutex::new(Diagnostics::default()),
@@ -623,6 +649,9 @@ fn main() {
         })
         .on_window_event(|window, event| {
             if window.label() == "pet" {
+                if matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. }) {
+                    refresh_pet_click_bounds(window.app_handle());
+                }
                 if let tauri::WindowEvent::Moved(position) = event {
                     if let Some(core) = window.app_handle().try_state::<Core>() {
                         *core.moved_position.lock().unwrap() = Some((

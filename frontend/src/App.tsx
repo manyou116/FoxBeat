@@ -38,12 +38,14 @@ const animals: { id: Animal; name: string; note: string; color: string }[] = [
   { id: 'cat', name: '小猫咪', note: '偶尔傲娇，一直陪伴', color: 'cat' },
   { id: 'yuexinCat', name: '月薪喵', note: '捂捂脸，今天也要上班', color: 'yuexinCat' },
   { id: 'orangeFox', name: '害羞橙狐', note: '捂嘴偷看，尾巴也会害羞', color: 'orangeFox' },
+  { id: 'dancingFox', name: '跳跳狐', note: '鼠标键盘滚轮，逐帧跳散味舞', color: 'dancingFox' },
   { id: 'capybara', name: '水豚', note: '慢一点，也很好', color: 'capybara' },
 ];
 const dances: { id: Dance; name: string; note: string; number: string }[] = [
   { id: 'sway', name: '左右摇摆', note: '晃一晃，心情就轻了', number: '01' },
   { id: 'step', name: '踏步扭扭', note: '小碎步，跟上你的节奏', number: '02' },
   { id: 'wave', name: '挥爪欢跳', note: '把开心举得高一点', number: '03' },
+  { id: 'sanwei', name: '散味舞', note: '每次输入推进一张原版动画帧', number: '04' },
 ];
 
 const initialState: AppState = {
@@ -156,6 +158,10 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    if (draft.animal === 'dancingFox') setAutoPlay(false);
+  }, [draft.animal]);
+
   const changeDraft = (patch: Partial<typeof draft>) => {
     draftEdited.current = true;
     const next = { ...draftRef.current, ...patch };
@@ -232,21 +238,21 @@ export default function App() {
     finally { busyRef.current = false; setBusy(''); }
   };
 
-  const pulsePreview = useCallback((fromKeyboard = false) => {
+  const pulsePreview = useCallback((source: 'keyboard' | 'mouseClick' | 'mouseScroll' = 'mouseClick') => {
     setAutoPlay(false);
     setHasTried(true);
     setInputCount(count => count + 1);
     if (native) {
-      void invoke('preview_pulse', { fromKeyboard }).catch(reason => {
+      void invoke('preview_pulse', { fromKeyboard: source === 'keyboard', fromMouseClick: source === 'mouseClick', fromMouseScroll: source === 'mouseScroll' }).catch(reason => {
         if (alive.current) setError(`桌面试跳未完成：${messageOf(reason)}`);
       });
     }
   }, [native]);
 
-  const enterTrial = () => {
+  const enterTrial = (source: 'keyboard' | 'mouseClick' = 'mouseClick') => {
     setAutoPlay(false);
     setPreviewListening(true);
-    pulsePreview();
+    pulsePreview(source);
     requestAnimationFrame(() => {
       interactionRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
@@ -268,11 +274,33 @@ export default function App() {
         button: Boolean(target?.closest('button, [role="button"], a[href]')),
       })) return;
       event.preventDefault();
-      pulsePreview(true);
+      pulsePreview('keyboard');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [page, previewListening, autoPlay, pulsePreview]);
+
+  useEffect(() => {
+    const area = interactionRef.current;
+    if (!area || page !== 'themes' || draft.animal !== 'dancingFox') return;
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest('.stage-pet-button, .try-pad') || (!event.deltaX && !event.deltaY)) return;
+      event.preventDefault();
+      setPreviewListening(true);
+      pulsePreview('mouseScroll');
+    };
+    area.addEventListener('wheel', onWheel, { passive: false });
+    return () => area.removeEventListener('wheel', onWheel);
+  }, [page, draft.animal, pulsePreview]);
+
+  const enableDancingInputs = () => {
+    if (busyRef.current || !loaded) return;
+    const next = { ...settingsRef.current, keyboard: true, mouseClick: true, mouseScroll: true };
+    settingsRef.current = next;
+    setSettings(next);
+    pendingSettings.current = next;
+    void flushSettings();
+  };
 
   const animal = animals.find(item => item.id === draft.animal)!;
   const dance = dances.find(item => item.id === draft.dance)!;
@@ -320,14 +348,14 @@ export default function App() {
       {page === 'themes' ? <div className="theme-layout">
         <section className="selection-panel" aria-label="主题选择">
           <div className="section-heading"><div><span className="section-number">01</span><h2>选一位小舞伴</h2></div><span className="section-aside">{animals.length} 位，随心切换</span></div>
-          <div className="animal-grid">{animals.map(item => <button key={item.id} className={`animal-card animal-${item.color}${draft.animal === item.id ? ' selected' : ''}`} aria-pressed={draft.animal === item.id} onClick={() => changeDraft({ animal: item.id })} disabled={Boolean(busy)}>
+          <div className="animal-grid">{animals.map(item => <button key={item.id} className={`animal-card animal-${item.color}${draft.animal === item.id ? ' selected' : ''}`} aria-pressed={draft.animal === item.id} onClick={() => changeDraft({ animal: item.id, dance: item.id === 'dancingFox' ? 'sanwei' : draftRef.current.dance === 'sanwei' ? 'sway' : draftRef.current.dance })} disabled={Boolean(busy)}>
             <span className="selected-check"><Icon name="check" size={13} /></span>
-            <span className="animal-portrait"><PetCanvas animal={item.id} dance="sway" mode="continuous" autoPlay={false} reducedMotion className="portrait-canvas" /></span>
+            <span className="animal-portrait"><PetCanvas animal={item.id} dance={item.id === 'dancingFox' ? 'sanwei' : 'sway'} mode={item.id === 'dancingFox' ? 'step' : 'continuous'} autoPlay={false} reducedMotion className="portrait-canvas" /></span>
             <strong>{item.name}</strong><span className="animal-note">{item.note}</span>
           </button>)}</div>
 
           <div className="section-heading dance-heading"><div><span className="section-number">02</span><h2>再挑一支舞</h2></div><span className="section-aside">都有自己的小性格</span></div>
-          <div className="dance-list">{dances.map(item => <button key={item.id} className={`dance-card${draft.dance === item.id ? ' selected' : ''}`} aria-pressed={draft.dance === item.id} onClick={() => changeDraft({ dance: item.id })} disabled={Boolean(busy)}>
+          <div className="dance-list">{dances.filter(item => draft.animal === 'dancingFox' ? item.id === 'sanwei' : item.id !== 'sanwei').map(item => <button key={item.id} className={`dance-card${draft.dance === item.id ? ' selected' : ''}`} aria-pressed={draft.dance === item.id} onClick={() => changeDraft({ dance: item.id })} disabled={Boolean(busy)}>
             <span className={`dance-symbol dance-symbol-${item.id}`} aria-hidden="true"><i /><i /><i /></span>
             <span className="dance-copy"><strong>{item.name}</strong><span>{item.note}</span></span><span className="dance-number">{item.number}</span><span className="dance-radio"><span /></span>
           </button>)}</div>
@@ -336,22 +364,23 @@ export default function App() {
         </section>
 
         <section className="preview-panel" aria-label="舞伴实时预览">
-          <div className="preview-heading"><span className="preview-label"><span />LIVE PREVIEW</span><span className="preview-mode-label">{settings.mode === 'continuous' ? '连续舞蹈' : '原味逐帧'}</span></div>
+          <div className="preview-heading"><span className="preview-label"><span />LIVE PREVIEW</span><span className="preview-mode-label">{draft.animal === 'dancingFox' || settings.mode === 'step' ? '原味逐帧' : '连续舞蹈'}</span></div>
           <div className="preview-interaction" ref={interactionRef}>
             <div className="preview-switch" role="group" aria-label="预览方式">
-              <button className={autoPlay ? 'active' : ''} aria-pressed={autoPlay} onClick={() => { setPreviewListening(false); setAutoPlay(true); }}><Icon name="play" size={15} />完整舞蹈</button>
-              <button className={previewListening && !autoPlay ? 'active' : ''} aria-pressed={previewListening && !autoPlay} onClick={() => { enterTrial(); tryRef.current?.focus({ preventScroll: true }); }}><Icon name="keyboard" size={16} />试打互动</button>
+              {draft.animal !== 'dancingFox' && <button className={autoPlay ? 'active' : ''} aria-pressed={autoPlay} onClick={() => { setPreviewListening(false); setAutoPlay(true); }}><Icon name="play" size={15} />完整舞蹈</button>}
+              <button className={previewListening && !autoPlay ? 'active' : ''} aria-pressed={previewListening && !autoPlay} onClick={event => { enterTrial(event.detail === 0 ? 'keyboard' : 'mouseClick'); tryRef.current?.focus({ preventScroll: true }); }}><Icon name="keyboard" size={16} />试打互动</button>
             </div>
             <div className={`pet-stage stage-${draft.animal}`}>
               <div className="stage-orbit orbit-one" /><div className="stage-orbit orbit-two" />
               <span className="stage-spark spark-one" /><span className="stage-spark spark-two" />
-              <button className="stage-pet-button" aria-label={`摸摸${animal.name}`} onClick={() => setPetting(count => count + 1)}><span className="scaled-pet-preview" style={{ transform: `scale(${settings.size / 320})`, opacity: settings.opacity }}><PetCanvas animal={draft.animal} dance={draft.dance} mode={settings.mode} reducedMotion={settings.reducedMotion} autoPlay={autoPlay} inputCount={inputCount} petting={petting} whipCount={whipCount} hardWhipCount={hardWhipCount} sensitivity={settings.sensitivity} easterEggs={settings.easterEggs} speechEnabled={settings.speechEnabled} onSpeech={setSpeech} className="stage-pet-canvas" /></span></button>
+              <button className="stage-pet-button" aria-label={draft.animal === 'dancingFox' ? '点击跳跳狐推进一帧，也可在这里滚动滚轮' : `摸摸${animal.name}`} onClick={event => { if (draft.animal === 'dancingFox') { setPreviewListening(true); pulsePreview(event.detail === 0 ? 'keyboard' : 'mouseClick'); } else setPetting(count => count + 1); }}><span className="scaled-pet-preview" style={{ transform: `scale(${settings.size / 320})`, opacity: settings.opacity }}><PetCanvas animal={draft.animal} dance={draft.dance} mode={draft.animal === 'dancingFox' ? 'step' : settings.mode} reducedMotion={settings.reducedMotion} autoPlay={autoPlay} inputCount={inputCount} petting={petting} whipCount={whipCount} hardWhipCount={hardWhipCount} sensitivity={settings.sensitivity} easterEggs={settings.easterEggs} speechEnabled={settings.speechEnabled} onSpeech={setSpeech} className="stage-pet-canvas" /></span></button>
               {speech && <span className="speech-bubble" role="status" aria-live="polite">{speech}</span>}
               <span className="stage-caption">{autoPlay ? '完整舞蹈自动播放中' : hasTried ? '你的节奏，我有听见' : '点击下方试打，和我一起跳'}</span>
             </div>
             <div className="preview-info"><h2>{animal.name}<span>·</span>{dance.name}</h2></div>
+            {draft.animal === 'dancingFox' && <div className="inline-hint">每次有效输入前进一帧，18 帧循环；停手 2 秒回到待机。可点击角色、敲键或在角色上滚动试玩。<br /><button className="text-button" disabled={commandDisabled || (settings.keyboard && settings.mouseClick && settings.mouseScroll)} onClick={enableDancingInputs}>{settings.keyboard && settings.mouseClick && settings.mouseScroll ? '三种输入来源已开启' : '开启键盘、点击和滚轮跟随'}</button></div>}
             {['fox', 'emojiFox', 'shyFox', 'orangeFox'].includes(draft.animal) && <div className="preview-whip-actions" role="group" aria-label="小鞭子互动"><button className="preview-whip-button" onClick={() => setWhipCount(count => count + 1)}>轻轻抽</button><button className="preview-whip-button strong" onClick={() => setHardWhipCount(count => count + 1)}>狠狠抽</button></div>}
-            <button ref={tryRef} className={`try-pad${previewListening && !autoPlay ? ' engaged' : ''}`} onClick={event => { event.currentTarget.focus({ preventScroll: true }); enterTrial(); }} aria-label={native ? '开启当前窗口试打，让预览和桌面小舞伴回应' : '开启当前窗口试打，让上方预览跳舞'}>
+            <button ref={tryRef} className={`try-pad${previewListening && !autoPlay ? ' engaged' : ''}`} onClick={event => { event.currentTarget.focus({ preventScroll: true }); enterTrial(event.detail === 0 ? 'keyboard' : 'mouseClick'); }} aria-label={native ? '开启当前窗口试打，让预览和桌面小舞伴回应' : '开启当前窗口试打，让上方预览跳舞'}>
               <span className="try-heading"><span className="try-keys"><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><strong>{autoPlay ? '点击停止自动播放，开始试打' : previewListening ? '已就绪，在当前窗口随意敲键' : '点击这里，再敲键'}</strong></span>
               <span className="try-feedback" role="status"><span className={previewListening ? 'status-dot live' : 'status-dot'} />本次收到 {inputCount} 次互动</span>
               <span>{trialScope}</span>
@@ -363,10 +392,10 @@ export default function App() {
         </section>
       </div> : <div className="settings-page">
         <div className="settings-toolbar"><span><Icon name="settings" size={16} />偏好设置</span><span className={saving ? 'save-state saving' : 'save-state'} role="status">{saving ? <><span className="spinner" />正在保存…</> : <><Icon name="check" size={14} />{native ? '设置自动保存' : '仅本页试玩生效'}</>}</span></div>
-        <section className="settings-card mode-settings"><div className="settings-card-heading"><h2>打字怎么跳</h2><p>两种玩法，同一份小快乐。</p></div><div className="mode-options">
+        {settings.animal === 'dancingFox' ? <section className="settings-card"><div className="settings-card-heading"><h2>散味舞 · 原味逐帧</h2><p>跳跳狐固定使用逐帧玩法：一次有效输入一帧，停手 2 秒待机。其他角色的舞蹈模式会保留。</p></div></section> : <section className="settings-card mode-settings"><div className="settings-card-heading"><h2>打字怎么跳</h2><p>两种玩法，同一份小快乐。</p></div><div className="mode-options">
           <button disabled={controlsDisabled} className={`mode-option${settings.mode === 'continuous' ? ' selected' : ''}`} aria-pressed={settings.mode === 'continuous'} onClick={() => updateSetting('mode', 'continuous')}><span className="mode-icon"><Icon name="play" /></span><span><strong>连续舞蹈 <em>推荐</em></strong><span>跟随节奏连贯跳舞，停下来后慢慢收势。</span></span><span className="dance-radio"><span /></span></button>
           <button disabled={controlsDisabled} className={`mode-option${settings.mode === 'step' ? ' selected' : ''}`} aria-pressed={settings.mode === 'step'} onClick={() => updateSetting('mode', 'step')}><span className="mode-icon"><Icon name="keyboard" /></span><span><strong>原味逐帧</strong><span>按一下，动作往前一步。节奏由你掌握。</span></span><span className="dance-radio"><span /></span></button>
-        </div></section>
+        </div></section>}
         <div className="settings-columns"><section className="settings-card"><div className="settings-card-heading"><h2>跟随哪些操作</h2><p>按自己的习惯，打开想要的回应。</p></div>
           <Toggle label="键盘输入" note="你打字，它跳舞" icon="keyboard" checked={settings.keyboard} onChange={value => updateSetting('keyboard', value)} disabled={controlsDisabled} />
           <Toggle label="鼠标点击" note="每次点击，也有回应" icon="mouse" checked={settings.mouseClick} onChange={value => updateSetting('mouseClick', value)} disabled={controlsDisabled} />

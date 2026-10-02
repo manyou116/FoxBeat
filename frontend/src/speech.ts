@@ -36,6 +36,9 @@ const LINES: Record<Animal, Record<CompanionSpeechEvent, string[]>> = {
   orangeFox: {
     launch: ['我、我来啦……'], 'first-input': ['听见你的声音了。'], burst: ['这节奏，好害羞……'], pause: ['呼……先缓一下。'], idle: ['偷偷陪你一会儿。'], 'long-idle': ['要不要一起伸伸腿？'], pet: ['唔……被摸到了。'], 'theme-change': ['换好啦，别笑我。'], surprise: ['呀！耳朵都竖起来了。'],
   },
+  dancingFox: {
+    launch: ['跳跳狐，准备起舞！'], 'first-input': ['收到，下一帧！'], burst: ['跟上节拍啦！'], pause: ['先停在这一帧。'], idle: ['等你下一次点击。'], 'long-idle': ['要不要再来一帧？'], pet: ['尾巴被摸到啦！'], 'theme-change': ['散味舞，准备好了！'], surprise: ['啪！动作推进！'],
+  },
 };
 
 const COOLDOWN: Record<CompanionSpeechEvent, number> = {

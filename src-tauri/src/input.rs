@@ -123,6 +123,7 @@ fn is_shortcut(mac: bool, control: bool, command: bool, alt: bool, right_alt: bo
 
 struct Shared {
     config: Mutex<InputConfig>,
+    pet_click_bounds: Mutex<Option<[f64; 4]>>,
     status: Mutex<InputStatus>,
     paused: AtomicBool,
     on_pulse: Box<dyn Fn(u32) + Send + Sync>,
@@ -221,6 +222,15 @@ impl RunState {
         }
     }
 
+    fn mouse_at(&self, scroll: bool, x: f64, y: f64) {
+        // The pet handles its click on release, after distinguishing a drag.
+        if !scroll && lock(&self.shared.pet_click_bounds).is_some_and(|[left, top, right, bottom]|
+            x >= left && x < right && y >= top && y < bottom) {
+            return;
+        }
+        self.mouse(scroll);
+    }
+
     fn ready(&self) {
         let _lifecycle = lock(&self.lifecycle);
         if self.cancelled.load(Ordering::Acquire) {
@@ -306,6 +316,10 @@ pub struct InputService {
 }
 
 impl InputService {
+    pub fn set_pet_click_bounds(&self, bounds: Option<[f64; 4]>) {
+        *lock(&self.shared.pet_click_bounds) = bounds;
+    }
+
     pub fn new(
         on_pulse: impl Fn(u32) + Send + Sync + 'static,
         on_status: impl Fn(InputStatus) + Send + Sync + 'static,
@@ -316,6 +330,7 @@ impl InputService {
                 status: Mutex::new(InputStatus::new("ready", "尚未开始感受敲键节奏")),
                 paused: AtomicBool::new(false),
                 on_pulse: Box::new(on_pulse),
+                pet_click_bounds: Mutex::new(None),
                 on_status: Box::new(on_status),
             }),
             operation: Mutex::new(()),
@@ -535,7 +550,10 @@ mod native {
                                 flags.contains(CGEventFlags::CGEventFlagAlternate), false),
                         });
                     }
-                    CGEventType::LeftMouseDown | CGEventType::RightMouseDown | CGEventType::OtherMouseDown => callback_state.mouse(false),
+                    CGEventType::LeftMouseDown | CGEventType::RightMouseDown | CGEventType::OtherMouseDown => {
+                        let point = event.location();
+                        callback_state.mouse_at(false, point.x, point.y);
+                    }
                     CGEventType::ScrollWheel => callback_state.mouse(true),
                     _ => {}
                 }
@@ -649,7 +667,7 @@ mod native {
                     if let Some(state) = context.borrow().as_ref() {
                         match wp as u32 {
                             WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN => {
-                                state.mouse(false)
+                                state.mouse_at(false, f64::from(data.pt.x), f64::from(data.pt.y))
                             }
                             WM_MOUSEWHEEL | WM_MOUSEHWHEEL => state.mouse(true),
                             _ => {}
@@ -967,6 +985,23 @@ mod tests {
         run.key(typing(2));
         run.mouse(false);
         run.mouse(true);
+        assert_eq!(run.pending.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn pet_clicks_are_local_but_scroll_and_outside_clicks_still_follow() {
+        let service = InputService::new(|_| {}, |_| {});
+        *lock(&service.shared.config) = InputConfig { mouse_click: true, mouse_scroll: true, ..InputConfig::default() };
+        service.set_pet_click_bounds(Some([-300.0, -100.0, -100.0, 100.0]));
+        let run = RunState::new(service.shared.clone());
+        run.ready();
+        run.mouse_at(false, -200.0, 0.0);
+        assert_eq!(run.pending.load(Ordering::Acquire), 0);
+        run.mouse_at(true, -200.0, 0.0);
+        run.mouse_at(false, -100.0, 0.0);
+        assert_eq!(run.pending.swap(0, Ordering::AcqRel), 2);
+        service.set_pet_click_bounds(None);
+        run.mouse_at(false, -200.0, 0.0);
         assert_eq!(run.pending.load(Ordering::Acquire), 1);
     }
 

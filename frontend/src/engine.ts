@@ -39,6 +39,8 @@ export interface Motion {
   clipElapsedMs: number;
   /** Normalized position within this clip. Loops wrap; reactions stop at 1. */
   clipProgress: number;
+  /** Exact frame index for a discrete character, -1 means its idle image. */
+  frameIndex?: number;
   /** Set on the first sample after a behavior event and then consumed. */
   speech?: SpeechTrigger;
 }
@@ -68,6 +70,7 @@ const MAX_VISUAL_DELTA_MS = 64;
 // looked like a fast flicker instead of a deliberate dance. Around 200ms per
 // frame gives the hand-drawn poses enough time to read.
 const GROOVE_PHASE_RATE = Math.PI * 0.6;
+const DANCING_FOX_FRAMES = 18;
 export const CLIP_DURATION_MS: Readonly<Record<BehaviorClip, number>> = {
   idle: 3_200,
   anticipation: ANTICIPATION_MS,
@@ -103,13 +106,17 @@ export class BehaviorController {
   private grooveResumeMs = 0;
   private mode: Mode = 'continuous';
   private sensitivity = 1;
+  private profile: 'standard' | 'dancingFox' = 'standard';
+  private exactFrame = -1;
+  private suspendedAt: number | undefined;
   private speechAt = Number.NEGATIVE_INFINITY;
   private speechId = 0;
   private speechQueue: SpeechTrigger[] = [];
 
-  configure(mode: Mode, sensitivity = 1) {
-    if (this.mode !== mode) this.reset();
+  configure(mode: Mode, sensitivity = 1, profile: 'standard' | 'dancingFox' = 'standard') {
+    if (this.mode !== mode || this.profile !== profile) this.reset();
     this.mode = mode;
+    this.profile = profile;
     this.sensitivity = bounded(sensitivity, 0.5, 1.5);
   }
 
@@ -125,6 +132,8 @@ export class BehaviorController {
     this.clipPlayheadMs = 0;
     this.grooveOffsetMs = 0;
     this.grooveResumeMs = 0;
+    this.exactFrame = -1;
+    this.suspendedAt = undefined;
     this.speechAt = Number.NEGATIVE_INFINITY;
     this.speechQueue = [];
   }
@@ -143,17 +152,28 @@ export class BehaviorController {
 
   pulse(count: number, now: number, source: ActivitySource = 'unknown'): void {
     if (!Number.isFinite(count) || count <= 0 || !Number.isFinite(now)) return;
-    const boundedCount = Math.min(12, Math.floor(count));
+    if (this.isExactStep() && this.suspendedAt !== undefined) return;
+    const boundedCount = this.profile === 'dancingFox' && this.mode === 'step'
+      ? Math.floor(count) : Math.min(12, Math.floor(count));
     if (boundedCount <= 0) return;
+    // Input can arrive before a delayed background paint observes the timeout.
+    if (this.isExactStep() && now - this.lastPulse >= 2_000) this.exactFrame = -1;
     this.created ??= now;
     this.lastPulse = now;
     this.lastActivity = now;
     this.energy = Math.min(1, Math.max(0.35, this.energy + boundedCount * 0.11 * this.sensitivity));
-    if (this.mode === 'step') this.phase = (this.phase + boundedCount * Math.PI / 12) % TAU;
+    if (this.profile === 'dancingFox' && this.mode === 'step') {
+      this.exactFrame = (this.exactFrame + boundedCount % DANCING_FOX_FRAMES + DANCING_FOX_FRAMES) % DANCING_FOX_FRAMES;
+      this.phase = (this.exactFrame / DANCING_FOX_FRAMES) * TAU;
+    } else if (this.mode === 'step') this.phase = (this.phase + boundedCount * Math.PI / 12) % TAU;
 
     // A new input during a recovery resumes the phrase; only a fresh phrase
     // needs the short lead-in.
-    if (this.behavior === 'idle' || this.behavior === 'sleep') {
+    if (this.profile === 'dancingFox' && this.mode === 'step') {
+      // The original companion has no lead-in or recovery animation: one
+      // accepted input immediately selects exactly one of its 18 drawings.
+      this.transition('groove', now, true);
+    } else if (this.behavior === 'idle' || this.behavior === 'sleep') {
       this.transition('anticipation', now);
     } else if (this.behavior === 'settle' || this.behavior === 'recover') {
       this.transition('groove', now);
@@ -162,6 +182,7 @@ export class BehaviorController {
   }
 
   pet(now: number): void {
+    if (this.isExactStep()) return;
     if (!Number.isFinite(now)) return;
     this.created ??= now;
     this.lastActivity = now;
@@ -171,6 +192,7 @@ export class BehaviorController {
   }
 
   click(now: number): void {
+    if (this.isExactStep()) return;
     if (!Number.isFinite(now)) return;
     this.created ??= now;
     this.lastActivity = now;
@@ -180,6 +202,7 @@ export class BehaviorController {
   }
 
   whip(now: number, strength: 'gentle' | 'strong' = 'gentle'): void {
+    if (this.isExactStep()) return;
     if (!Number.isFinite(now)) return;
     this.created ??= now;
     this.lastActivity = now;
@@ -203,6 +226,7 @@ export class BehaviorController {
 
   sample(now: number, autoplay = false): Motion {
     if (!Number.isFinite(now)) now = this.lastTime ?? 0;
+    if (this.isExactStep() && this.suspendedAt !== undefined) now = this.suspendedAt;
     this.created ??= now;
     this.behaviorAt ??= now;
     const visualFrom = Math.max(this.lastTime ?? this.behaviorAt, this.behaviorAt);
@@ -214,7 +238,7 @@ export class BehaviorController {
     const reactionDuration = this.behavior === 'pet' ? PET_MS
       : this.behavior === 'greet' ? GREET_MS
         : isWhipClip(this.behavior) ? CLIP_DURATION_MS[this.behavior] : 0;
-    if (autoplay && (!reactionDuration || now - this.behaviorAt >= reactionDuration)) {
+    if (!this.isExactStep() && autoplay && (!reactionDuration || now - this.behaviorAt >= reactionDuration)) {
       this.transition('groove', now);
       this.phase = (this.phase + dt * GROOVE_PHASE_RATE * 0.94) % TAU;
       const result = this.buildMotion('groove', 0.78);
@@ -225,6 +249,19 @@ export class BehaviorController {
     const activityAt = Number.isFinite(this.lastActivity) ? this.lastActivity : this.created;
     const age = Number.isFinite(activityAt) ? Math.max(0, now - activityAt) : Infinity;
     const sinceBehavior = Math.max(0, now - this.behaviorAt);
+
+    if (this.isExactStep()) {
+      if (age >= 2_000) {
+        this.exactFrame = -1;
+        this.energy = 0;
+        this.transition('idle', now);
+      } else if (this.exactFrame >= 0) {
+        this.behavior = 'groove';
+      }
+      const exact = this.buildMotion(this.behavior, this.exactFrame >= 0 ? 1 : 0);
+      exact.speech = this.speechQueue.shift();
+      return exact;
+    }
 
     if (this.behavior === 'anticipation' && sinceBehavior >= ANTICIPATION_MS) {
       this.transition('groove', this.behaviorAt + ANTICIPATION_MS);
@@ -316,7 +353,27 @@ export class BehaviorController {
       ? ((this.phase % TAU) + TAU) % TAU / TAU
       : looping ? ((clipElapsedMs + (behavior === 'groove' ? this.grooveOffsetMs : 0)) % duration) / duration
         : Math.min(1, clipElapsedMs / duration);
-    return { phase: this.phase, energy: bounded(energy, 0, 1), state, behavior, clip: behavior, clipElapsedMs, clipProgress };
+    return {
+      phase: this.phase, energy: bounded(energy, 0, 1), state, behavior, clip: behavior,
+      clipElapsedMs, clipProgress,
+      frameIndex: this.isExactStep() ? this.exactFrame : undefined,
+    };
+  }
+
+  private isExactStep(): boolean {
+    return this.profile === 'dancingFox' && this.mode === 'step';
+  }
+
+  /** Hold the exact pose and its idle deadline while the user drags the pet. */
+  setSuspended(value: boolean, now: number): void {
+    if (!Number.isFinite(now)) return;
+    if (value && this.suspendedAt === undefined) this.suspendedAt = now;
+    if (!value && this.suspendedAt !== undefined) {
+      const elapsed = Math.max(0, now - this.suspendedAt);
+      this.lastPulse += elapsed;
+      this.lastActivity += elapsed;
+      this.suspendedAt = undefined;
+    }
   }
 
   private maybeSpeak(kind: SpeechTrigger['kind'], at: number, source?: ActivitySource): void {

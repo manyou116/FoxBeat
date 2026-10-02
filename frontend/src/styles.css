@@ -119,3 +119,8 @@
 .update-spinning { animation:update-spin 1s linear infinite; }
 @keyframes update-spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .update-spinning { animation:none; } }
+.dance-symbol-sanwei { background:#fff0df; align-items:flex-end; padding-bottom:9px; }
+.dance-symbol-sanwei i { background:#e59850; height:12px; }
+.dance-symbol-sanwei i:nth-child(2) { height:22px; background:#cc6d3c; }
+.dance-symbol-sanwei i:nth-child(3) { height:16px; background:#f0b35f; }
+.stage-dancingFox .orbit-one { background:radial-gradient(circle,#fff0d5aa,transparent 68%); }

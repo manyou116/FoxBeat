@@ -21,6 +21,10 @@ function Pet() {
   const [hardWhipCount,setHardWhipCount]=useState(0);
   const [speech,setSpeech]=useState('');
   const [error,setError]=useState('');
+  const [holding,setHolding]=useState(false);
+  const heldPointer=useRef<number | null>(null);
+  const stateRef=useRef(state);
+  stateRef.current=state;
   const gesture=useRef(new PetGesture());
   const dragOffset=useRef({x:0,y:0});
   const moving=useRef(false);
@@ -40,7 +44,11 @@ function Pet() {
       try {
         const off=await listen<AppState>('foxbeat://state',e=>{if(active)setState(e.payload);});
         if(!active){off();return;}cleanup.push(off);
-        const offPulse=await listen<{count:number}>('foxbeat://pulse',e=>{if(active)setCount(v=>v+e.payload.count);});
+        const offPulse=await listen<{count:number}>('foxbeat://pulse',e=>{
+          if(!active || stateRef.current.paused || stateRef.current.hidden) return;
+          if(stateRef.current.settings.animal === 'dancingFox' && heldPointer.current !== null) return;
+          setCount(v=>v+e.payload.count);
+        });
         if(!active){offPulse();return;}cleanup.push(offPulse);
         const current=await invoke<AppState>('get_state');if(!active)return;setState(current);
         await invoke('pet_ready');
@@ -59,16 +67,25 @@ function Pet() {
     e.preventDefault();
     if(isTauri())void getCurrentWindow().startDragging().catch(err=>setError(String(err)));
   };
-  const interact=()=>{
+  const cancelHold=()=>{heldPointer.current=null;setHolding(false);gesture.current.cancel();};
+  useEffect(()=>{
+    window.addEventListener('blur',cancelHold);
+    return()=>window.removeEventListener('blur',cancelHold);
+  },[]);
+  const interact=(event:React.MouseEvent)=>{
     if(state.paused||state.hidden||!gesture.current.click())return;
-    setPetting(v=>v+1);
+    const exact=state.settings.animal === 'dancingFox';
+    if(!exact)setPetting(v=>v+1);
+    if(exact && event.detail===0 && state.settings.keyboard && state.status.state==='listening')return;
     setDirectClicks(v=>v+1);
+    setCount(v=>v+(exact?1:4));
   };
   return <div className={`desktop-pet${state.adjusting?' is-adjusting':''}`}>
     {state.adjusting&&<div className="pet-toolbar"><button className="pet-drag-handle" aria-label="按住拖动小舞伴" onPointerDown={startDrag}>⠿ 按住这里拖动</button><button onClick={finish}>完成</button></div>}
     <button type="button" className="pet-body" aria-label="点击小舞伴互动，按住拖动位置" title="点一下跳舞 · 按住拖动" style={{opacity:state.settings.opacity}}
-      onPointerDown={e=>{if(e.button!==0)return;gesture.current.down(e.pointerId,e.screenX,e.screenY);dragOffset.current={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}
+      onPointerDown={e=>{if(e.button!==0)return;heldPointer.current=e.pointerId;setHolding(true);gesture.current.down(e.pointerId,e.screenX,e.screenY);dragOffset.current={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}
       onPointerMove={e=>{
+        if(heldPointer.current!==null && !(e.buttons&1)){cancelHold();return;}
         gesture.current.move(e.pointerId,e.screenX,e.screenY);
         if(gesture.current.isDragging()&&!moving.current&&isTauri()){
           moving.current=true;
@@ -76,9 +93,12 @@ function Pet() {
             .catch(err=>setError(String(err))).finally(()=>{moving.current=false;});
         }
       }}
-      onPointerUp={()=>gesture.current.end()} onPointerCancel={()=>gesture.current.cancel()} onClick={interact}
-      onContextMenu={e=>{e.preventDefault();if(!state.paused&&!state.hidden&&['fox','emojiFox','shyFox','orangeFox'].includes(state.settings.animal)){if(e.shiftKey)setHardWhipCount(v=>v+1);else setWhipCount(v=>v+1);}}}>
-      <PetCanvas {...state.settings} autoPlay={false} inputCount={count+directClicks*4} petting={petting} whipCount={whipCount} hardWhipCount={hardWhipCount} paused={state.paused||state.hidden} speechEnabled={state.settings.speechEnabled} onSpeech={setSpeech} runInBackground/>
+      onPointerUp={()=>{gesture.current.end();heldPointer.current=null;setHolding(false);}}
+      onLostPointerCapture={()=>{if(heldPointer.current!==null)cancelHold();}}
+      onPointerCancel={cancelHold} onClick={interact}
+      onAuxClick={e=>{if(e.button===1 && state.settings.animal==='dancingFox' && !state.paused && !state.hidden){e.preventDefault();setCount(v=>v+1);}}}
+      onContextMenu={e=>{e.preventDefault();if(state.paused||state.hidden)return;if(state.settings.animal==='dancingFox'){setCount(v=>v+1);}else if(['fox','emojiFox','shyFox','orangeFox'].includes(state.settings.animal)){if(e.shiftKey)setHardWhipCount(v=>v+1);else setWhipCount(v=>v+1);}}}>
+      <PetCanvas {...state.settings} mode={state.settings.animal === 'dancingFox' ? 'step' : state.settings.mode} autoPlay={false} inputCount={count} dragging={state.settings.animal==='dancingFox' && holding} petting={petting} whipCount={whipCount} hardWhipCount={hardWhipCount} paused={state.paused||state.hidden} speechEnabled={state.settings.speechEnabled} onSpeech={setSpeech} runInBackground/>
     </button>
     {speech&&<div className="pet-speech" role="status" aria-live="polite">{speech}</div>}
     {error&&<div className="pet-error" role="alert">{error}<button onClick={()=>setError('')}>关闭</button></div>}

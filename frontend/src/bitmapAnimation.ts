@@ -99,8 +99,8 @@ export function selectBitmapFrame(options: BitmapFrameOptions): BitmapFrame {
   }
   if (options.clip === 'groove') {
     return {
-      atlas: options.dance,
-      frame: Math.min(GROOVE_FRAMES - 1, Math.floor(progress * GROOVE_FRAMES)),
+      atlas: options.dance === 'sanwei' ? 'actions' : options.dance,
+      frame: options.dance === 'sanwei' ? 0 : Math.min(GROOVE_FRAMES - 1, Math.floor(progress * GROOVE_FRAMES)),
     };
   }
   if (options.clip === 'settle' && options.settleFrom && options.settleFrom.atlas !== 'actions') {
